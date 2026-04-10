@@ -74,21 +74,37 @@
   .chk { display: flex; align-items: center; gap: 5px; margin: 3px 0; font-size: 11px; color: #ddd; }
   .section-btns { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
   .img-preview { max-width: 100%; max-height: 80px; border-radius: 3px; margin: 4px 0; background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50%/12px 12px; }
+  #logPanel {
+    position: absolute; bottom: 30px; right: 8px; width: 220px; max-height: 260px;
+    background: rgba(0,0,0,0.7); border-radius: 5px; overflow-y: auto; font-size: 10px;
+    padding: 4px 0;
+  }
+  #logPanel:empty { display: none; }
+  .log-entry {
+    padding: 3px 8px; cursor: pointer; color: #aaa; border-left: 2px solid transparent;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .log-entry:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .log-entry.current { border-left-color: #4ec9b0; color: #4ec9b0; }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="sidebar">
     <div style="text-align:center; color:#666; font-size:10px; margin-bottom:5px;">실험실 장비 배치 시뮬레이터 <b>v2</b></div>
-    <div class="row" style="margin-bottom:6px">
+    <div class="row" style="margin-bottom:4px">
       <button id="saveBtn" class="ghost" style="flex:1">💾 저장</button>
       <button id="loadBtn" class="ghost" style="flex:1">📂 불러오기</button>
+    </div>
+    <div class="row" style="margin-bottom:6px">
+      <button id="undoBtn" class="ghost" style="flex:1">↩ 되돌리기</button>
+      <button id="resetBtn" class="danger" style="flex:1">🗑 초기화</button>
     </div>
     <input type="file" id="loadFile" accept=".json">
 
     <h2>전역 설정</h2>
     <div class="row">
-      <div><label>배경색</label><input type="color" id="bgColor" value="#2b2b2b"></div>
+      <div><label>배경색</label><input type="color" id="bgColor" value="#f0ede6"></div>
     </div>
     <div class="chk"><input type="checkbox" id="showDims" checked> 공간 치수 표시</div>
     <div class="chk"><input type="checkbox" id="showAllLabels" checked> 모든 라벨 표시</div>
@@ -110,8 +126,8 @@
       <div><label>높이 H</label><input type="number" id="roomH" value="3" step="0.1"></div>
     </div>
     <div class="row">
-      <div><label>바닥 색</label><input type="color" id="floorColor" value="#c8a878"></div>
-      <div><label>벽 색</label><input type="color" id="wallColor" value="#aac4e0"></div>
+      <div><label>바닥 색</label><input type="color" id="floorColor" value="#8fbc8f"></div>
+      <div><label>벽 색</label><input type="color" id="wallColor" value="#e8dcc8"></div>
     </div>
     <label>공간 이름</label><input type="text" id="spaceName" value="실험실 1">
     <button id="applyRoom">공간 적용</button>
@@ -160,6 +176,7 @@
     <div id="editPanel"><small style="color:#666">객체를 선택하세요</small></div>
   </div>
   <div id="viewport">
+    <div id="logPanel"></div>
     <div id="credit" style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; font-size:9px; color:#888; pointer-events:none; line-height:1.5; text-align:right;">
       Lab Equipment Placement Simulator v2<br>
       제작: chihunlee@kims.re.kr<br>
@@ -243,7 +260,7 @@ const LIBRARY = [
 // ─── Three.js 셋업 ───
 const VP = document.getElementById('viewport');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2b2b2b);
+scene.background = new THREE.Color(0xf0ede6);
 const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
 camera.position.set(12, 12, 12);
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -259,7 +276,7 @@ function resize() { const w = VP.clientWidth, h = VP.clientHeight; camera.aspect
 window.addEventListener('resize', resize); resize();
 
 // ─── 상태 ───
-let spaces = [{ id: 1, name: '실험실 1', x: 0, z: 0, w: 8, d: 6, h: 3, floorColor: 0xc8a878, wallColor: 0xaac4e0 }];
+let spaces = [{ id: 1, name: '실험실 1', x: 0, z: 0, w: 8, d: 6, h: 3, floorColor: 0x8fbc8f, wallColor: 0xe8dcc8 }];
 let activeSpaceId = 1;
 let nextSpaceId = 2;
 const placed = [];
@@ -715,7 +732,7 @@ function addEquipment(spec, x = null, z = null) {
   const edges = mesh.geometry ? new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x000000 })) : null;
   if (edges) mesh.add(edges);
   const item = { id, type: 'equipment', name: spec.name, spaceId: sp.id, spec: { ...spec }, mesh, label, edges, rotY: 0, props: p, textureDataURL: spec.textureDataURL || null, glbDataURL: spec.glbDataURL || null, usePrimitive };
-  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
+  placed.push(item); refreshPlacedList(); selectItem(id); pushHistory(`+ ${spec.name} 배치`);
   return item;
 }
 
@@ -782,7 +799,7 @@ function addDoor() {
   const arc = buildArcMesh(p, sp); scene.add(arc);
   const label = makeLabelSprite('문'); label.visible = p.showLabel; panel.add(label);
   const item = { id, type: 'door', name: '문', spaceId: sp.id, mesh: panel, arc, label, props: p };
-  placed.push(item); updateDoorPlace(item); refreshPlacedList(); selectItem(id); autoSave();
+  placed.push(item); updateDoorPlace(item); refreshPlacedList(); selectItem(id); pushHistory('+ 문 배치');
   return item;
 }
 
@@ -826,7 +843,7 @@ function addBarrier() {
   const label = makeLabelSprite('방호벽'); label.position.set(0, p.h/2+0.2, 0); label.visible = p.showLabel; mesh.add(label);
   mesh.position.set(sp.x + sp.w/2, p.h/2, sp.z + sp.d/2); mesh.userData.id = id; scene.add(mesh);
   const item = { id, type: 'barrier', name: '방호벽', spaceId: sp.id, mesh, label, edges, rotY: 0, props: p };
-  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
+  placed.push(item); refreshPlacedList(); selectItem(id); pushHistory('+ 방호벽 배치');
   return item;
 }
 function updateBarrierVis(item) {
@@ -850,7 +867,7 @@ function addPerson() {
   const label = makeLabelSprite('사람'); label.position.set(0, 1.65, 0); label.visible = p.showLabel; g.add(label);
   g.position.set(sp.x + sp.w/2, 0, sp.z + sp.d/2); scene.add(g);
   const item = { id, type: 'person', name: '사람', spaceId: sp.id, mesh: g, pickBox: pick, torso, label, rotY: 0, props: p };
-  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
+  placed.push(item); refreshPlacedList(); selectItem(id); pushHistory('+ 사람 배치');
   return item;
 }
 
@@ -864,7 +881,7 @@ function addRobotArm() {
   g.position.set(sp.x + sp.w/2, 0, sp.z + sp.d/2); scene.add(g);
   const pick = g.children.find(c => c.userData.isPick);
   const item = { id, type: 'robot', name: '로봇팔', spaceId: sp.id, mesh: g, pickBox: pick, label, rotY: 0, props: p };
-  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
+  placed.push(item); refreshPlacedList(); selectItem(id); pushHistory('+ 로봇팔 배치');
   return item;
 }
 
@@ -922,7 +939,7 @@ function removeItem(id) {
   const it = placed[idx]; scene.remove(it.mesh); if (it.arc) scene.remove(it.arc);
   placed.splice(idx, 1);
   if (selectedId === id) selectedId = null;
-  refreshPlacedList(); refreshEditPanel(); autoSave();
+  refreshPlacedList(); refreshEditPanel(); pushHistory(`- ${it.name} 삭제`);
 }
 
 function selectItem(id) {
@@ -1020,7 +1037,7 @@ function renderSpaceList() {
     d.className = 'space-row' + (sp.id === activeSpaceId ? ' active' : '');
     d.innerHTML = `<span>${sp.name} (${sp.w}×${sp.d}m)</span><button class="sm danger" data-del="${sp.id}">✕</button>`;
     d.querySelector('span').onclick = () => { activeSpaceId = sp.id; syncSpaceUI(); renderSpaceList(); refreshPlacedList(); };
-    d.querySelector('button').onclick = e => { e.stopPropagation(); if (spaces.length <= 1) return; spaces = spaces.filter(s => s.id !== sp.id); placed.filter(p => p.spaceId === sp.id).forEach(p => removeItem(p.id)); if (activeSpaceId === sp.id) activeSpaceId = spaces[0].id; buildAllRooms(); syncSpaceUI(); renderSpaceList(); refreshPlacedList(); autoSave(); };
+    d.querySelector('button').onclick = e => { e.stopPropagation(); if (spaces.length <= 1) return; spaces = spaces.filter(s => s.id !== sp.id); placed.filter(p => p.spaceId === sp.id).forEach(p => removeItem(p.id)); if (activeSpaceId === sp.id) activeSpaceId = spaces[0].id; buildAllRooms(); syncSpaceUI(); renderSpaceList(); refreshPlacedList(); pushHistory('- 공간 삭제'); };
     el.appendChild(d);
   });
 }
@@ -1089,20 +1106,20 @@ function renderEquipEdit(el, item) {
     p.w = parseFloat(el.querySelector('#eW').value); p.d = parseFloat(el.querySelector('#eD').value); p.h = parseFloat(el.querySelector('#eH').value);
     p.color = c2i(el.querySelector('#eC').value); p.opacity = parseFloat(el.querySelector('#eOp').value); p.showLabel = el.querySelector('#eLbl').checked;
     el.querySelector('#eOV').textContent = p.opacity.toFixed(2);
-    updateEquipVisual(item); autoSave();
+    updateEquipVisual(item); pushHistory(`✏ ${item.name} 편집`);
   };
   ['eX','eZ','eRot','eW','eD','eH','eC','eOp','eLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
-  el.querySelector('#rotL').onclick = () => { item.rotY -= Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
-  el.querySelector('#rotR').onclick = () => { item.rotY += Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
+  el.querySelector('#rotL').onclick = () => { item.rotY -= Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); pushHistory(`↺ ${item.name} 회전`); };
+  el.querySelector('#rotR').onclick = () => { item.rotY += Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); pushHistory(`↻ ${item.name} 회전`); };
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
   el.querySelector('#eImgBtn').onclick = () => el.querySelector('#eImgFile').click();
   el.querySelector('#eImgFile').onchange = e => {
     const f = e.target.files[0]; if (!f) return;
     const r = new FileReader(); r.onload = ev => {
-      const img = new Image(); img.onload = () => { const r = processImage(img); item.textureDataURL = r.dataURL; item.silhouette = r.silhouette; updateEquipVisual(item); refreshEditPanel(); autoSave(); }; img.src = ev.target.result;
+      const img = new Image(); img.onload = () => { const r = processImage(img); item.textureDataURL = r.dataURL; item.silhouette = r.silhouette; updateEquipVisual(item); refreshEditPanel(); pushHistory(`📷 ${item.name} 사진`); }; img.src = ev.target.result;
     }; r.readAsDataURL(f);
   };
-  if (el.querySelector('#eImgDel')) el.querySelector('#eImgDel').onclick = () => { item.textureDataURL = null; updateEquipVisual(item); refreshEditPanel(); autoSave(); };
+  if (el.querySelector('#eImgDel')) el.querySelector('#eImgDel').onclick = () => { item.textureDataURL = null; updateEquipVisual(item); refreshEditPanel(); pushHistory(`🗑 ${item.name} 사진제거`); };
 }
 
 function renderDoorEdit(el, item) {
@@ -1118,7 +1135,7 @@ function renderDoorEdit(el, item) {
     <label>색상</label><input type="color" id="dC" value="${i2h(p.color)}">${paletteHTML('dC')}
     <div class="chk"><input type="checkbox" id="dLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <button class="danger" id="delBtn">삭제</button>`;
-  const apply = () => { p.wall=el.querySelector('#dW').value; p.pos=parseFloat(el.querySelector('#dP').value); p.width=parseFloat(el.querySelector('#dWi').value); p.height=parseFloat(el.querySelector('#dH').value); p.hinge=el.querySelector('#dHi').value; p.swing=el.querySelector('#dSw').value; p.color=c2i(el.querySelector('#dC').value); p.showLabel=el.querySelector('#dLbl').checked; item.label.visible=p.showLabel; updateDoorPlace(item); autoSave(); };
+  const apply = () => { p.wall=el.querySelector('#dW').value; p.pos=parseFloat(el.querySelector('#dP').value); p.width=parseFloat(el.querySelector('#dWi').value); p.height=parseFloat(el.querySelector('#dH').value); p.hinge=el.querySelector('#dHi').value; p.swing=el.querySelector('#dSw').value; p.color=c2i(el.querySelector('#dC').value); p.showLabel=el.querySelector('#dLbl').checked; item.label.visible=p.showLabel; updateDoorPlace(item); pushHistory('✏ 문 편집'); };
   ['dW','dP','dWi','dH','dHi','dSw','dC','dLbl'].forEach(k => { const e = el.querySelector('#'+k); e.oninput = apply; if (e.tagName === 'SELECT') e.onchange = apply; });
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
 }
@@ -1135,10 +1152,10 @@ function renderBarrierEdit(el, item) {
     <label>투명도 <span id="bOV">${p.opacity.toFixed(2)}</span></label><input type="range" id="bOp" min="0" max="1" step="0.05" value="${p.opacity}">
     <div class="chk"><input type="checkbox" id="bLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <button class="danger" id="delBtn">삭제</button>`;
-  const apply = () => { item.mesh.position.x=parseFloat(el.querySelector('#bX').value); item.mesh.position.z=parseFloat(el.querySelector('#bZ').value); item.rotY=parseFloat(el.querySelector('#bRot').value)*Math.PI/180; item.mesh.rotation.y=item.rotY; p.w=parseFloat(el.querySelector('#bW').value); p.d=parseFloat(el.querySelector('#bD').value); p.h=parseFloat(el.querySelector('#bH').value); p.color=c2i(el.querySelector('#bC').value); p.opacity=parseFloat(el.querySelector('#bOp').value); p.showLabel=el.querySelector('#bLbl').checked; el.querySelector('#bOV').textContent=p.opacity.toFixed(2); updateBarrierVis(item); autoSave(); };
+  const apply = () => { item.mesh.position.x=parseFloat(el.querySelector('#bX').value); item.mesh.position.z=parseFloat(el.querySelector('#bZ').value); item.rotY=parseFloat(el.querySelector('#bRot').value)*Math.PI/180; item.mesh.rotation.y=item.rotY; p.w=parseFloat(el.querySelector('#bW').value); p.d=parseFloat(el.querySelector('#bD').value); p.h=parseFloat(el.querySelector('#bH').value); p.color=c2i(el.querySelector('#bC').value); p.opacity=parseFloat(el.querySelector('#bOp').value); p.showLabel=el.querySelector('#bLbl').checked; el.querySelector('#bOV').textContent=p.opacity.toFixed(2); updateBarrierVis(item); pushHistory('✏ 방호벽 편집'); };
   ['bX','bZ','bRot','bW','bD','bH','bC','bOp','bLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
-  el.querySelector('#rotL').onclick = () => { item.rotY -= Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
-  el.querySelector('#rotR').onclick = () => { item.rotY += Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
+  el.querySelector('#rotL').onclick = () => { item.rotY -= Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); pushHistory('↺ 방호벽 회전'); };
+  el.querySelector('#rotR').onclick = () => { item.rotY += Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); pushHistory('↻ 방호벽 회전'); };
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
 }
 
@@ -1151,7 +1168,7 @@ function renderPersonEdit(el, item) {
     <label>옷 색상</label><input type="color" id="pC" value="${i2h(p.color)}">${paletteHTML('pC')}
     <div class="chk"><input type="checkbox" id="pLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <button class="danger" id="delBtn">삭제</button>`;
-  const apply = () => { item.mesh.position.x=parseFloat(el.querySelector('#pX').value); item.mesh.position.z=parseFloat(el.querySelector('#pZ').value); item.rotY=parseFloat(el.querySelector('#pRot').value)*Math.PI/180; item.mesh.rotation.y=item.rotY; p.color=c2i(el.querySelector('#pC').value); p.showLabel=el.querySelector('#pLbl').checked; item.torso.material.color.setHex(p.color); item.label.visible=p.showLabel; autoSave(); };
+  const apply = () => { item.mesh.position.x=parseFloat(el.querySelector('#pX').value); item.mesh.position.z=parseFloat(el.querySelector('#pZ').value); item.rotY=parseFloat(el.querySelector('#pRot').value)*Math.PI/180; item.mesh.rotation.y=item.rotY; p.color=c2i(el.querySelector('#pC').value); p.showLabel=el.querySelector('#pLbl').checked; item.torso.material.color.setHex(p.color); item.label.visible=p.showLabel; pushHistory('✏ 사람 편집'); };
   ['pX','pZ','pRot','pC','pLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
 }
@@ -1173,7 +1190,7 @@ function renderRobotEdit(el, item) {
     p.reach = parseFloat(el.querySelector('#rReach').value);
     p.color = c2i(el.querySelector('#rC').value);
     p.showLabel = el.querySelector('#rLbl').checked;
-    updateRobotVisual(item); autoSave();
+    updateRobotVisual(item); pushHistory('✏ 로봇팔 편집');
   };
   ['rX','rZ','rRot','rReach','rC','rLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
@@ -1200,7 +1217,7 @@ document.getElementById('applyRoom').onclick = () => {
   sp.floorColor = c2i(document.getElementById('floorColor').value); sp.wallColor = c2i(document.getElementById('wallColor').value);
   sp.name = document.getElementById('spaceName').value;
   buildAllRooms(); placed.filter(p => p.type === 'door' && p.spaceId === sp.id).forEach(updateDoorPlace);
-  renderSpaceList(); autoSave();
+  renderSpaceList(); pushHistory('🏠 공간 설정 변경');
 };
 
 document.getElementById('bgColor').oninput = e => { scene.background.setStyle(e.target.value); };
@@ -1222,7 +1239,7 @@ document.querySelectorAll('[data-dir]').forEach(btn => {
     else if (dir === 'west') { nx = sp.x - nw; nd = sp.d; }
     const newSp = { id: nextSpaceId++, name: `공간 ${nextSpaceId - 1}`, x: nx, z: nz, w: nw, d: nd, h: sp.h, floorColor: sp.floorColor, wallColor: sp.wallColor };
     spaces.push(newSp); activeSpaceId = newSp.id;
-    buildAllRooms(); syncSpaceUI(); renderSpaceList(); refreshPlacedList(); autoSave();
+    buildAllRooms(); syncSpaceUI(); renderSpaceList(); refreshPlacedList(); pushHistory('+ 인접 공간 추가');
   };
 });
 
@@ -1249,7 +1266,7 @@ const SAVE_VERSION = 2;
 function migrateData(data) {
   if (!data.version) data.version = 1;
   if (data.version === 1) {
-    data.spaces = [{ id: 1, name: '실험실 1', x: 0, z: 0, ...(data.room || { w: 8, d: 6, h: 3, floorColor: 0xc8a878, wallColor: 0xaac4e0 }) }];
+    data.spaces = [{ id: 1, name: '실험실 1', x: 0, z: 0, ...(data.room || { w: 8, d: 6, h: 3, floorColor: 0x8fbc8f, wallColor: 0xe8dcc8 }) }];
     (data.placed || []).forEach(p => p.spaceId = 1);
     data.version = 2;
   }
@@ -1270,11 +1287,11 @@ function serializeState() {
   });
 }
 
-function loadState(json) {
-  const data = migrateData(JSON.parse(json));
+function loadState(json, skipHistory) {
+  const data = migrateData(typeof json === 'string' ? JSON.parse(json) : json);
   [...placed].forEach(p => { scene.remove(p.mesh); if (p.arc) scene.remove(p.arc); });
   placed.length = 0; selectedId = null;
-  spaces = data.spaces || [{ id: 1, name: '실험실 1', x: 0, z: 0, w: 8, d: 6, h: 3, floorColor: 0xc8a878, wallColor: 0xaac4e0 }];
+  spaces = data.spaces || [{ id: 1, name: '실험실 1', x: 0, z: 0, w: 8, d: 6, h: 3, floorColor: 0x8fbc8f, wallColor: 0xe8dcc8 }];
   activeSpaceId = data.activeSpaceId || 1;
   nextSpaceId = data.nextSpaceId || (Math.max(...spaces.map(s => s.id)) + 1);
   if (data.bgColor) { scene.background.setStyle(data.bgColor); document.getElementById('bgColor').value = data.bgColor; }
@@ -1329,7 +1346,55 @@ document.getElementById('loadFile').onchange = e => {
   r.readAsText(f); e.target.value = '';
 };
 function autoSave() { try { localStorage.setItem('labLayout', serializeState()); } catch {} }
+
+// ─── 히스토리 (되돌리기) ───
+const history = [];
+let historyIdx = -1;
+const MAX_HISTORY = 20;
+
+function pushHistory(desc) {
+  // 현재 위치 이후 히스토리 버리기
+  if (historyIdx < history.length - 1) history.splice(historyIdx + 1);
+  history.push({ state: serializeState(), desc, time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) });
+  if (history.length > MAX_HISTORY) history.shift();
+  historyIdx = history.length - 1;
+  renderLog();
+  autoSave();
+}
+
+function undoTo(idx) {
+  if (idx < 0 || idx >= history.length) return;
+  historyIdx = idx;
+  const skipHistory = true;
+  loadState(history[idx].state, skipHistory);
+  renderLog();
+  autoSave();
+}
+
+function renderLog() {
+  const el = document.getElementById('logPanel');
+  el.innerHTML = history.map((h, i) =>
+    `<div class="log-entry${i === historyIdx ? ' current' : ''}" data-idx="${i}">${h.time} ${h.desc}</div>`
+  ).join('');
+  el.querySelectorAll('.log-entry').forEach(e => {
+    e.onclick = () => undoTo(parseInt(e.dataset.idx));
+  });
+  el.scrollTop = el.scrollHeight;
+}
+
+document.getElementById('undoBtn').onclick = () => { if (historyIdx > 0) undoTo(historyIdx - 1); };
+
+document.getElementById('resetBtn').onclick = () => {
+  if (!confirm('배치된 모든 객체를 초기화하시겠습니까?')) return;
+  [...placed].forEach(p => { scene.remove(p.mesh); if (p.arc) scene.remove(p.arc); });
+  placed.length = 0; selectedId = null; nextId = 1;
+  refreshPlacedList(); refreshEditPanel();
+  pushHistory('🗑 전체 초기화');
+};
+
 try { const s = localStorage.getItem('labLayout'); if (s) loadState(s); } catch {}
+// 초기 상태 히스토리에 저장
+pushHistory('📂 초기 로드');
 
 // ─── 마우스 ───
 const raycaster = new THREE.Raycaster();
@@ -1394,10 +1459,23 @@ renderer.domElement.addEventListener('pointermove', e => {
     placedY = (item.type === 'person' || item.type === 'robot' || item.usePrimitive) ? 0 : (item.props?.h || 1) / 2;
   }
   item.mesh.position.y = placedY;
+  // 벽 충돌 제약 — 공간 경계 내로 클램프
+  const sp = spaces.find(s => s.id === item.spaceId);
+  if (sp && item.type !== 'door') {
+    const hw = (item.props?.w || 0.3) / 2, hd = (item.props?.d || 0.3) / 2;
+    item.mesh.position.x = Math.max(sp.x + hw, Math.min(sp.x + sp.w - hw, item.mesh.position.x));
+    item.mesh.position.z = Math.max(sp.z + hd, Math.min(sp.z + sp.d - hd, item.mesh.position.z));
+  }
   refreshEditPanel();
 });
 
-window.addEventListener('pointerup', () => { if (dragging) { dragging = false; orbit.enabled = true; autoSave(); } });
+window.addEventListener('pointerup', () => {
+  if (dragging) {
+    dragging = false; orbit.enabled = true;
+    const item = placed.find(p => p.id === selectedId);
+    pushHistory(item ? `↔ ${item.name} 이동` : '↔ 이동');
+  }
+});
 
 // ─── 키보드 ───
 window.addEventListener('keydown', e => {
@@ -1407,7 +1485,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (rulerMode) { rulerMode = false; document.getElementById('rulerBtn').classList.remove('active'); clearRuler(); renderer.domElement.style.cursor = ''; } if (selectedId !== null) selectItem(null); return; }
   if (inForm) return;
   const item = placed.find(p => p.id === selectedId); if (!item) return;
-  if (e.key === 'r' || e.key === 'R') { if (item.type === 'door') return; item.rotY += Math.PI / 2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); }
+  if (e.key === 'r' || e.key === 'R') { if (item.type === 'door') return; item.rotY += Math.PI / 2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); pushHistory(`↻ ${item.name} 회전`); }
   else if (e.key === 'Delete' || e.key === 'Backspace') removeItem(item.id);
 });
 
