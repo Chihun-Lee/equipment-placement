@@ -661,7 +661,7 @@ function makeTexMaterials(dataURL, color, opacity) {
   const faceMat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.3 });
   const sideMat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.35 });
   const topMat = new THREE.MeshStandardMaterial({ visible: false });
-  return [sideMat, sideMat, topMat, sideMat, faceMat, faceMat];
+  return [sideMat, sideMat, topMat, topMat, faceMat, faceMat];
 }
 
 // ─── 장비 추가 ───
@@ -704,7 +704,8 @@ function addEquipment(spec, x = null, z = null) {
     mesh.add(edges);
   }
   const label = makeLabelSprite(spec.name);
-  label.position.set(0, p.h/2 + 0.25, 0); label.visible = p.showLabel;
+  label.position.set(0, usePrimitive ? (p.h + 0.25) : (p.h/2 + 0.25), 0);
+  label.visible = p.showLabel;
   mesh.add(label);
   if (x === null) x = sp.x + sp.w / 2;
   if (z === null) z = sp.z + sp.d / 2;
@@ -739,8 +740,10 @@ function updateEquipVisual(item) {
   } else {
     item.mesh.material = new THREE.MeshStandardMaterial({ color: p.color, transparent: p.opacity < 1, opacity: p.opacity });
   }
-  if (item.mesh.position.y < p.h / 2) item.mesh.position.y = p.h / 2;
-  item.label.position.y = p.h / 2 + 0.25; item.label.visible = p.showLabel;
+  const baseY = item.usePrimitive ? 0 : p.h / 2;
+  if (item.mesh.position.y < baseY) item.mesh.position.y = baseY;
+  item.label.position.y = item.usePrimitive ? (p.h + 0.25) : (p.h / 2 + 0.25);
+  item.label.visible = p.showLabel;
 }
 
 // ─── 문 ───
@@ -1286,7 +1289,7 @@ function loadState(json) {
       const item = addEquipment(libSpec, d.x, d.z);
       item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
       item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
-      item.mesh.position.y = d.y || d.props.h / 2;
+      item.mesh.position.y = item.usePrimitive ? 0 : (d.y || d.props.h / 2);
       Object.assign(item.props, d.props);
       item.textureDataURL = d.textureDataURL || null;
       item.glbDataURL = d.glbDataURL || null;
@@ -1350,7 +1353,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   getPointer(e); raycaster.setFromCamera(pointer, camera);
   if (rulerMode) {
-    const surfs = placed.filter(p => p.type === 'equipment' && p.spec?.surface).map(p => p.mesh);
+    const surfs = placed.filter(p => p.type === 'equipment' && p.spec?.surface && p.spaceId === activeSpaceId).map(p => p.mesh);
     surfs.push(...floorMeshes);
     const hits = raycaster.intersectObjects(surfs, false);
     if (hits.length > 0) { const hp = hits[0].point.clone(); hp.y += 0.02; if (!rulerStart || (rulerStart && rulerEnd)) { rulerStart = hp; rulerEnd = null; } else { rulerEnd = hp; } drawRuler(); }
@@ -1376,19 +1379,19 @@ renderer.domElement.addEventListener('pointermove', e => {
   if (item.type === 'door') { const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt); snapDoor(item, pt.x, pt.z); refreshEditPanel(); return; }
   let placedY = null;
   if (item.type === 'equipment' && item.spec?.category === 'tabletop') {
-    const surfs = placed.filter(p => p.id !== item.id && p.type === 'equipment' && p.spec?.surface).map(p => p.mesh);
+    const surfs = placed.filter(p => p.id !== item.id && p.type === 'equipment' && p.spec?.surface && p.spaceId === item.spaceId).map(p => p.mesh);
     surfs.push(...floorMeshes);
     const hits = raycaster.intersectObjects(surfs, false);
     if (hits.length > 0 && hits[0].face) {
       const n = hits[0].face.normal.clone().transformDirection(hits[0].object.matrixWorld);
-      if (n.y > 0.5) { item.mesh.position.x = hits[0].point.x; item.mesh.position.z = hits[0].point.z; placedY = hits[0].point.y + item.props.h / 2; }
+      if (n.y > 0.5) { item.mesh.position.x = hits[0].point.x; item.mesh.position.z = hits[0].point.z; placedY = hits[0].point.y + (item.usePrimitive ? 0 : item.props.h / 2); }
     }
   }
   if (placedY === null) {
     const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
     const target = item.mesh;
     target.position.x = pt.x - dragOffset.x; target.position.z = pt.z - dragOffset.z;
-    placedY = item.type === 'person' || item.type === 'robot' ? 0 : (item.props?.h || 1) / 2;
+    placedY = (item.type === 'person' || item.type === 'robot' || item.usePrimitive) ? 0 : (item.props?.h || 1) / 2;
   }
   item.mesh.position.y = placedY;
   refreshEditPanel();
@@ -1431,19 +1434,19 @@ document.getElementById('ssAll').onclick = () => {
   ];
   const origPos = camera.position.clone();
   const origTarget = orbit.target.clone();
-  views.forEach((v, i) => {
-    setTimeout(() => {
-      camera.position.set(...v.pos);
-      orbit.target.set(cx, ch, cz);
-      orbit.update();
-      camera.updateProjectionMatrix();
-      takeScreenshot(`lab_${v.name}.png`);
-      if (i === views.length - 1) {
-        // 원래 시점 복원
-        setTimeout(() => { camera.position.copy(origPos); orbit.target.copy(origTarget); orbit.update(); }, 200);
-      }
-    }, i * 300);
-  });
+  let idx = 0;
+  function captureNext() {
+    if (idx >= views.length) {
+      camera.position.copy(origPos); orbit.target.copy(origTarget); orbit.update();
+      return;
+    }
+    const v = views[idx++];
+    camera.position.set(...v.pos);
+    orbit.target.set(cx, ch, cz);
+    orbit.update(); camera.updateProjectionMatrix();
+    requestAnimationFrame(() => { renderer.render(scene, camera); takeScreenshot(`lab_${v.name}.png`); setTimeout(captureNext, 200); });
+  }
+  captureNext();
 };
 
 // ─── 카메라 뷰 프리셋 ───
@@ -1468,7 +1471,7 @@ const collisionGroup = new THREE.Group(); scene.add(collisionGroup);
 function updateCollisions() {
   collisionGroup.traverse(ch => { if (ch.isMesh) { ch.geometry.dispose(); ch.material.dispose(); } });
   collisionGroup.clear();
-  const items = placed.filter(p => ['equipment', 'barrier', 'robot'].includes(p.type));
+  const items = placed.filter(p => ['equipment', 'barrier', 'robot'].includes(p.type) && p.spaceId === activeSpaceId);
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
       const a = new THREE.Box3().setFromObject(items[i].mesh);
