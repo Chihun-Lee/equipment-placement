@@ -2,57 +2,55 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>실험실 장비 배치 시뮬레이터 v1</title>
+<title>실험실 장비 배치 시뮬레이터 v2</title>
 <style>
-  html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; background: #1e1e1e; color: #eee; overflow: hidden; }
+  html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: #1e1e1e; color: #eee; overflow: hidden; }
   #app { display: flex; height: 100vh; }
   #sidebar {
-    width: 340px; min-width: 340px; background: #252526; border-right: 1px solid #333;
+    width: 350px; min-width: 350px; background: #252526; border-right: 1px solid #333;
     overflow-y: auto; padding: 12px; box-sizing: border-box; font-size: 13px;
   }
   #viewport { flex: 1; position: relative; }
   #viewport canvas { display: block; }
-  h2 { font-size: 12px; margin: 14px 0 6px; color: #4ec9b0; text-transform: uppercase; letter-spacing: 0.5px; }
+  h2 { font-size: 11px; margin: 12px 0 5px; color: #4ec9b0; text-transform: uppercase; letter-spacing: 0.5px; }
   h2:first-child { margin-top: 0; }
-  label { display: block; font-size: 11px; color: #aaa; margin-top: 5px; }
+  label { display: block; font-size: 11px; color: #aaa; margin-top: 4px; }
   input[type=number], input[type=text], select {
     width: 100%; box-sizing: border-box; background: #1e1e1e; color: #eee;
     border: 1px solid #444; padding: 4px 6px; border-radius: 3px; font-size: 12px;
   }
-  input[type=color] { width: 100%; height: 24px; background: #1e1e1e; border: 1px solid #444; border-radius: 3px; cursor: pointer; }
+  input[type=color] { width: 100%; height: 22px; background: #1e1e1e; border: 1px solid #444; border-radius: 3px; cursor: pointer; }
   input[type=range] { width: 100%; }
-  .row { display: flex; gap: 6px; }
+  input[type=file] { display: none; }
+  .row { display: flex; gap: 5px; }
   .row > * { flex: 1; }
   button {
-    background: #0e639c; color: #fff; border: 0; padding: 5px 10px; border-radius: 3px;
-    cursor: pointer; font-size: 12px; margin-top: 5px;
+    background: #0e639c; color: #fff; border: 0; padding: 4px 9px; border-radius: 3px;
+    cursor: pointer; font-size: 11px; margin-top: 4px;
   }
   button:hover { background: #1177bb; }
   button.danger { background: #a1260d; }
   button.danger:hover { background: #c42b0e; }
-  button.sm { padding: 3px 8px; margin: 0; font-size: 11px; }
+  button.sm { padding: 3px 7px; margin: 0; font-size: 10px; }
   button.ghost { background: #3a3a3d; }
   button.ghost:hover { background: #4a4a4d; }
   button.active { background: #d4a017; color: #000; }
-
-  .palette { display: flex; flex-wrap: wrap; gap: 2px; margin: 3px 0; }
-  .swatch { width: 16px; height: 16px; border-radius: 2px; cursor: pointer; border: 1px solid #444; display: inline-block; }
-  .swatch:hover { border-color: #fff; transform: scale(1.2); }
-
+  .palette { display: flex; flex-wrap: wrap; gap: 2px; margin: 2px 0; }
+  .swatch { width: 15px; height: 15px; border-radius: 2px; cursor: pointer; border: 1px solid #444; display: inline-block; }
+  .swatch:hover { border-color: #fff; transform: scale(1.15); }
   .lib-row {
-    background: #2d2d30; padding: 5px 8px; margin: 3px 0; border-radius: 3px;
-    display: flex; justify-content: space-between; align-items: center; gap: 6px;
+    background: #2d2d30; padding: 4px 7px; margin: 2px 0; border-radius: 3px;
+    display: flex; justify-content: space-between; align-items: center; gap: 5px; font-size: 12px;
   }
-  .lib-row .name { flex: 1; cursor: pointer; font-size: 12px; }
+  .lib-row .name { flex: 1; cursor: pointer; }
   .lib-row .name:hover { color: #4ec9b0; }
   .lib-row small { color: #888; font-size: 10px; display: block; }
   .lib-edit {
-    background: #1f1f22; padding: 8px; margin: 0 0 6px 0; border-radius: 3px;
-    border-left: 3px solid #4ec9b0;
+    background: #1f1f22; padding: 7px; margin: 0 0 5px 0; border-radius: 3px; border-left: 3px solid #4ec9b0;
   }
   .placed-row {
-    background: #2d2d30; padding: 4px 8px; margin: 2px 0; border-radius: 3px;
-    cursor: pointer; font-size: 12px; border-left: 3px solid transparent;
+    background: #2d2d30; padding: 3px 7px; margin: 2px 0; border-radius: 3px;
+    cursor: pointer; font-size: 11px; border-left: 3px solid transparent;
     display: flex; justify-content: space-between; align-items: center;
   }
   .placed-row.selected { border-left-color: #4ec9b0; background: #37373d; }
@@ -61,27 +59,51 @@
   .badge.barrier { background: #4488cc; }
   .badge.equip { background: #4ec9b0; color: #000; }
   .badge.person { background: #ff9933; color: #000; }
-  hr { border: 0; border-top: 1px solid #333; margin: 8px 0; }
+  .badge.robot { background: #ff6600; color: #fff; }
+  .space-row {
+    background: #2d2d30; padding: 4px 7px; margin: 2px 0; border-radius: 3px;
+    cursor: pointer; font-size: 12px; border-left: 3px solid transparent;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .space-row.active { border-left-color: #4ec9b0; background: #37373d; }
+  hr { border: 0; border-top: 1px solid #333; margin: 6px 0; }
   #hint {
     position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65);
-    padding: 6px 10px; border-radius: 4px; font-size: 11px; pointer-events: none; line-height: 1.5;
+    padding: 5px 9px; border-radius: 4px; font-size: 10px; pointer-events: none; line-height: 1.5;
   }
-  .chk { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; color: #ddd; }
-  .section-btns { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .chk { display: flex; align-items: center; gap: 5px; margin: 3px 0; font-size: 11px; color: #ddd; }
+  .section-btns { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
+  .img-preview { max-width: 100%; max-height: 80px; border-radius: 3px; margin: 4px 0; background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50%/12px 12px; }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="sidebar">
-    <div style="text-align:center; color:#666; font-size:10px; margin-bottom:6px;">실험실 장비 배치 시뮬레이터 <b>v1</b></div>
-    <!-- 저장/불러오기 -->
-    <div class="row" style="margin-bottom:8px">
+    <div style="text-align:center; color:#666; font-size:10px; margin-bottom:5px;">실험실 장비 배치 시뮬레이터 <b>v2</b></div>
+    <div class="row" style="margin-bottom:6px">
       <button id="saveBtn" class="ghost" style="flex:1">💾 저장</button>
       <button id="loadBtn" class="ghost" style="flex:1">📂 불러오기</button>
     </div>
-    <input type="file" id="loadFile" accept=".json" style="display:none">
+    <input type="file" id="loadFile" accept=".json">
 
-    <h2>방 설정 (m)</h2>
+    <h2>전역 설정</h2>
+    <div class="row">
+      <div><label>배경색</label><input type="color" id="bgColor" value="#2b2b2b"></div>
+    </div>
+    <div class="chk"><input type="checkbox" id="showDims" checked> 공간 치수 표시</div>
+    <div class="chk"><input type="checkbox" id="showAllLabels" checked> 모든 라벨 표시</div>
+
+    <h2>공간 관리</h2>
+    <div id="spaceList"></div>
+    <label>현재 공간에 인접 추가</label>
+    <div class="section-btns">
+      <button class="sm ghost" data-dir="north">↑ 북</button>
+      <button class="sm ghost" data-dir="south">↓ 남</button>
+      <button class="sm ghost" data-dir="east">→ 동</button>
+      <button class="sm ghost" data-dir="west">← 서</button>
+    </div>
+
+    <h2>현재 공간 설정 (m)</h2>
     <div class="row">
       <div><label>가로 W</label><input type="number" id="roomW" value="8" step="0.1"></div>
       <div><label>세로 D</label><input type="number" id="roomD" value="6" step="0.1"></div>
@@ -91,19 +113,26 @@
       <div><label>바닥 색</label><input type="color" id="floorColor" value="#c8a878"></div>
       <div><label>벽 색</label><input type="color" id="wallColor" value="#aac4e0"></div>
     </div>
-    <button id="applyRoom">방 적용</button>
+    <label>공간 이름</label><input type="text" id="spaceName" value="실험실 1">
+    <button id="applyRoom">공간 적용</button>
 
     <h2>도구</h2>
     <div class="section-btns">
       <button id="rulerBtn" class="ghost">📏 줄자</button>
       <button id="rulerClear" class="ghost sm">지우기</button>
     </div>
+    <h2>카메라 시점</h2>
+    <div class="section-btns">
+      <button class="sm ghost" data-view="iso">등각</button>
+      <button class="sm ghost" data-view="top">탑뷰</button>
+      <button class="sm ghost" data-view="front">정면</button>
+      <button class="sm ghost" data-view="side">측면</button>
+    </div>
 
     <h2>장비 라이브러리</h2>
-    <div class="chk"><input type="checkbox" id="showAllLabels" checked> 모든 라벨 표시</div>
     <div id="library"></div>
     <hr>
-    <label>커스텀 장비 (이름 / W / D / H)</label>
+    <label>커스텀 장비</label>
     <input type="text" id="customName" placeholder="장비명">
     <div class="row">
       <input type="number" id="customW" placeholder="W" step="0.05" value="1">
@@ -117,6 +146,7 @@
       <button id="addDoor">🚪 문</button>
       <button id="addBarrier">🛡 방호벽</button>
       <button id="addPerson">🧍 사람</button>
+      <button id="addRobot">🦾 로봇팔</button>
     </div>
 
     <h2>배치된 객체</h2>
@@ -128,18 +158,13 @@
   <div id="viewport">
     <div id="hint">
       좌클릭: 회전 · 우클릭: 팬 · 휠: 줌 · 클릭: 선택 · 드래그: 이동<br>
-      Enter: 배치완료 · R: 90°회전 · Del: 삭제 · 줄자: 두 점 클릭→거리
+      Enter: 배치완료 · R: 90°회전 · Del: 삭제 · 📏 줄자: 두 점 클릭
     </div>
   </div>
 </div>
 
 <script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
 </script>
 <script type="module">
 import * as THREE from 'three';
@@ -152,399 +177,480 @@ const PALETTE = [
   '#ffffff','#cccccc','#888888','#555555','#333333','#000000',
   '#cc8844','#8b6f47','#6b8e23','#3a7ca5','#aa3322','#ff9933','#88ccff','#4ec9b0',
 ];
-
-function paletteHTML(inputId) {
-  return `<div class="palette">${PALETTE.map(c =>
-    `<span class="swatch" style="background:${c}" data-color="${c}" data-for="${inputId}"></span>`
-  ).join('')}</div>`;
+function paletteHTML(id) {
+  return `<div class="palette">${PALETTE.map(c => `<span class="swatch" style="background:${c}" data-color="${c}" data-for="${id}"></span>`).join('')}</div>`;
 }
-
 document.addEventListener('click', e => {
   if (!e.target.classList.contains('swatch')) return;
-  const input = document.getElementById(e.target.dataset.for);
-  if (input) { input.value = e.target.dataset.color; input.dispatchEvent(new Event('input')); }
+  const inp = document.getElementById(e.target.dataset.for);
+  if (inp) { inp.value = e.target.dataset.color; inp.dispatchEvent(new Event('input')); }
 });
 
 // ─── 라이브러리 ───
 const LIBRARY = [
-  { name: '광학 테이블',           w: 2.4, d: 1.2, h: 0.9, color: '#555555', opacity: 1.0, showLabel: true, category: 'floor', surface: true },
-  { name: '실험 벤치',             w: 1.8, d: 0.75, h: 0.9, color: '#8b6f47', opacity: 1.0, showLabel: true, category: 'floor', surface: true },
-  { name: '컴퓨터 책상',           w: 1.4, d: 0.7, h: 0.75, color: '#6f5b3e', opacity: 1.0, showLabel: true, category: 'floor', surface: true },
-  { name: 'PBF 3D 프린터 (소형)',  w: 1.2, d: 1.0, h: 1.8, color: '#3a7ca5', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: 'PBF 3D 프린터 (대형)',  w: 2.0, d: 1.5, h: 2.2, color: '#2f5d8e', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: 'SLA 3D 프린터',         w: 0.8, d: 0.7, h: 1.5, color: '#4488aa', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '와이어 가공기 (EDM)',   w: 1.8, d: 1.4, h: 1.9, color: '#446688', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '다중 열처리로',         w: 2.5, d: 1.0, h: 1.8, color: '#cc4422', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '단일 전기로',           w: 0.9, d: 0.8, h: 1.4, color: '#aa3322', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '로봇팔',                w: 0.6, d: 0.6, h: 1.4, color: '#ff9933', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: 'SEM',                   w: 1.5, d: 1.2, h: 1.9, color: '#6b8e23', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: 'XRD',                   w: 1.5, d: 1.0, h: 1.8, color: '#8b7e23', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '인장시험기',            w: 0.8, d: 0.6, h: 2.0, color: '#777777', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '드라이박스/글로브박스', w: 2.0, d: 1.0, h: 1.8, color: '#999988', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '드래프트 후드',         w: 1.5, d: 0.8, h: 2.2, color: '#b0b0b0', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '냉장고',                w: 0.7, d: 0.7, h: 1.8, color: '#eeeeee', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '캐비닛',                w: 0.9, d: 0.5, h: 1.8, color: '#8a7f6e', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
-  { name: '광학 현미경',           w: 0.4, d: 0.4, h: 0.5, color: '#808080', opacity: 1.0, showLabel: true, category: 'tabletop', surface: false },
-  { name: '디지털 현미경',         w: 0.35, d: 0.35, h: 0.55, color: '#909090', opacity: 1.0, showLabel: true, category: 'tabletop', surface: false },
-  { name: 'FDM 3D 프린터',         w: 0.5, d: 0.5, h: 0.6, color: '#5588aa', opacity: 1.0, showLabel: true, category: 'tabletop', surface: false },
-  { name: '데스크탑 PC + 모니터',  w: 0.6, d: 0.3, h: 0.55, color: '#223344', opacity: 1.0, showLabel: true, category: 'tabletop', surface: false },
-  { name: '초음파 세척기',         w: 0.4, d: 0.3, h: 0.35, color: '#778899', opacity: 1.0, showLabel: true, category: 'tabletop', surface: false },
-  { name: '연마기',                w: 0.5, d: 0.5, h: 0.4, color: '#666677', opacity: 1.0, showLabel: true, category: 'tabletop', surface: false },
-  { name: '저울',                  w: 0.3, d: 0.35, h: 0.15, color: '#cccccc', opacity: 1.0, showLabel: true, category: 'tabletop', surface: false },
-  { name: '의자',                  w: 0.5, d: 0.5, h: 0.9, color: '#444466', opacity: 1.0, showLabel: true, category: 'floor', surface: false },
+  { name: '광학 테이블',           w: 2.4, d: 1.2, h: 0.9, color: '#555555', opacity: 1, showLabel: true, category: 'floor', surface: true },
+  { name: '실험 벤치',             w: 1.8, d: 0.75, h: 0.9, color: '#8b6f47', opacity: 1, showLabel: true, category: 'floor', surface: true },
+  { name: '컴퓨터 책상',           w: 1.4, d: 0.7, h: 0.75, color: '#6f5b3e', opacity: 1, showLabel: true, category: 'floor', surface: true },
+  { name: 'PBF 3D 프린터 (소형)',  w: 1.2, d: 1.0, h: 1.8, color: '#3a7ca5', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: 'PBF 3D 프린터 (대형)',  w: 2.0, d: 1.5, h: 2.2, color: '#2f5d8e', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: 'SLA 3D 프린터',         w: 0.8, d: 0.7, h: 1.5, color: '#4488aa', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '와이어 가공기 (EDM)',   w: 1.8, d: 1.4, h: 1.9, color: '#446688', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '다중 열처리로',         w: 2.5, d: 1.0, h: 1.8, color: '#cc4422', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '단일 전기로',           w: 0.9, d: 0.8, h: 1.4, color: '#aa3322', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: 'SEM',                   w: 1.5, d: 1.2, h: 1.9, color: '#6b8e23', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: 'XRD',                   w: 1.5, d: 1.0, h: 1.8, color: '#8b7e23', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '인장시험기',            w: 0.8, d: 0.6, h: 2.0, color: '#777777', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '드라이박스/글로브박스', w: 2.0, d: 1.0, h: 1.8, color: '#999988', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '드래프트 후드',         w: 1.5, d: 0.8, h: 2.2, color: '#b0b0b0', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '냉장고',                w: 0.7, d: 0.7, h: 1.8, color: '#eeeeee', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '캐비닛',                w: 0.9, d: 0.5, h: 1.8, color: '#8a7f6e', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '광학 현미경',           w: 0.4, d: 0.4, h: 0.5, color: '#808080', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '디지털 현미경',         w: 0.35, d: 0.35, h: 0.55, color: '#909090', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: 'FDM 3D 프린터',         w: 0.5, d: 0.5, h: 0.6, color: '#5588aa', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '데스크탑 PC + 모니터',  w: 0.6, d: 0.3, h: 0.55, color: '#223344', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '초음파 세척기',         w: 0.4, d: 0.3, h: 0.35, color: '#778899', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '연마기',                w: 0.5, d: 0.5, h: 0.4, color: '#666677', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '저울',                  w: 0.3, d: 0.35, h: 0.15, color: '#cccccc', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '의자',                  w: 0.5, d: 0.5, h: 0.9, color: '#444466', opacity: 1, showLabel: true, category: 'floor', surface: false },
 ];
 
 // ─── Three.js 셋업 ───
-const viewport = document.getElementById('viewport');
+const VP = document.getElementById('viewport');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x2b2b2b);
 const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
-camera.position.set(10, 10, 10);
+camera.position.set(12, 12, 12);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-viewport.appendChild(renderer.domElement);
-const orbitCtrl = new OrbitControls(camera, renderer.domElement);
-orbitCtrl.target.set(4, 0, 3);
+VP.appendChild(renderer.domElement);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target.set(4, 0, 3);
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(10, 20, 10);
-scene.add(dirLight);
+const dLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dLight.position.set(10, 20, 10); scene.add(dLight);
 scene.add(new THREE.AxesHelper(1));
-
-function resize() {
-  const w = viewport.clientWidth, h = viewport.clientHeight;
-  camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
-}
+function resize() { const w = VP.clientWidth, h = VP.clientHeight; camera.aspect = w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); }
 window.addEventListener('resize', resize); resize();
 
-// ─── 방 ───
-let roomGroup = new THREE.Group();
-scene.add(roomGroup);
-let floorMesh = null;
-let room = { w: 8, d: 6, h: 3, floorColor: 0xc8a878, wallColor: 0xaac4e0 };
-
-function buildRoom() {
-  // 기존 메쉬 dispose
-  roomGroup.traverse(child => {
-    if (child.isMesh) { child.geometry.dispose(); child.material.dispose(); }
-  });
-  roomGroup.clear();
-  const { w, d, h, floorColor, wallColor } = room;
-  floorMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(w, d),
-    new THREE.MeshStandardMaterial({ color: floorColor, side: THREE.DoubleSide })
-  );
-  floorMesh.rotation.x = -Math.PI / 2;
-  floorMesh.position.set(w/2, 0, d/2);
-  floorMesh.userData.isFloor = true;
-  roomGroup.add(floorMesh);
-  const grid = new THREE.GridHelper(Math.max(w, d) * 2, Math.max(w, d) * 2, 0x555555, 0x666666);
-  grid.position.set(w/2, 0.002, d/2);
-  grid.material.opacity = 0.35; grid.material.transparent = true;
-  roomGroup.add(grid);
-  // 벽마다 개별 material 생성
-  const addWall = (ww, hh, x, y, z, ry) => {
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(ww, hh),
-      new THREE.MeshStandardMaterial({ color: wallColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
-    );
-    m.position.set(x,y,z); m.rotation.y = ry; roomGroup.add(m);
-  };
-  addWall(w, h, w/2, h/2, 0, 0);
-  addWall(w, h, w/2, h/2, d, Math.PI);
-  addWall(d, h, 0, h/2, d/2, Math.PI/2);
-  addWall(d, h, w, h/2, d/2, -Math.PI/2);
-}
-buildRoom();
-
 // ─── 상태 ───
+let spaces = [{ id: 1, name: '실험실 1', x: 0, z: 0, w: 8, d: 6, h: 3, floorColor: 0xc8a878, wallColor: 0xaac4e0 }];
+let activeSpaceId = 1;
+let nextSpaceId = 2;
 const placed = [];
 let selectedId = null;
 let editingLibIdx = null;
 let nextId = 1;
+let showDims = true;
 
-// ─── 라벨 스프라이트 ───
+function activeSpace() { return spaces.find(s => s.id === activeSpaceId); }
+
+// ─── 라벨 스프라이트 (고해상도) ───
 function makeLabelSprite(text) {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
   const c = document.createElement('canvas');
-  const pad = 14, fs = 44;
-  const font = `bold ${fs}px -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
-  // 측정용
-  const mctx = c.getContext('2d');
-  mctx.font = font;
-  const tw = mctx.measureText(text).width;
-  const logW = tw + pad * 2, logH = fs + pad * 2;
-  // 고해상도 canvas
-  c.width = logW * dpr;
-  c.height = logH * dpr;
-  const ctx = c.getContext('2d');
-  ctx.scale(dpr, dpr);
-  ctx.font = font;
-  ctx.fillStyle = 'rgba(0,0,0,0.75)';
-  ctx.roundRect(0, 0, logW, logH, 4);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, pad, logH / 2);
-  const tex = new THREE.CanvasTexture(c);
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
+  const pad = 12, fs = 40;
+  const font = `bold ${fs}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  const mctx = c.getContext('2d'); mctx.font = font;
+  const logW = mctx.measureText(text).width + pad * 2, logH = fs + pad * 2;
+  c.width = logW * dpr; c.height = logH * dpr;
+  const ctx = c.getContext('2d'); ctx.scale(dpr, dpr); ctx.font = font;
+  ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.beginPath(); ctx.roundRect(0, 0, logW, logH, 4); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(text, pad, logH / 2);
+  const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
   s.scale.set(logW * 0.004, logH * 0.004, 1);
   return s;
 }
-
 function c2i(c) { return typeof c === 'number' ? c : parseInt(String(c).replace('#',''), 16); }
-function i2h(i) { return '#' + i.toString(16).padStart(6, '0'); }
+function i2h(i) { return '#' + Math.max(0, i).toString(16).padStart(6, '0'); }
+
+// ─── 이미지 처리 (배경제거 + 필터) ───
+function processImage(img, tolerance = 38) {
+  const MAX = 512;
+  const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+  const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+  const id = ctx.getImageData(0, 0, w, h);
+  const d = id.data;
+
+  // 1. 코너 색 평균 → 배경색
+  const gc = (x, y) => { const i = (y * w + x) * 4; return [d[i], d[i+1], d[i+2]]; };
+  const corners = [gc(0,0), gc(w-1,0), gc(0,h-1), gc(w-1,h-1)];
+  const bg = corners.reduce((a,b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]], [0,0,0]).map(v => v / 4);
+  const dist = (a, b) => Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2);
+
+  // 2. BFS 가장자리에서 배경 제거
+  const visited = new Uint8Array(w * h);
+  const queue = [];
+  for (let x = 0; x < w; x++) { queue.push(x, (h-1)*w+x); visited[x] = 1; visited[(h-1)*w+x] = 1; }
+  for (let y = 1; y < h - 1; y++) { queue.push(y*w, y*w+w-1); visited[y*w] = 1; visited[y*w+w-1] = 1; }
+  let qi = 0;
+  while (qi < queue.length) {
+    const idx = queue[qi++];
+    const px = idx % w, py = (idx - px) / w;
+    const i = idx * 4;
+    if (dist([d[i], d[i+1], d[i+2]], bg) < tolerance) {
+      d[i+3] = 0;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx = px+dx, ny = py+dy;
+        if (nx >= 0 && nx < w && ny >= 0 && ny < h) { const ni = ny*w+nx; if (!visited[ni]) { visited[ni] = 1; queue.push(ni); } }
+      }
+    }
+  }
+
+  // 3. 가장자리 페더링
+  const alpha = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) alpha[i] = d[i * 4 + 3];
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    if (alpha[i] > 0) {
+      let hasTrans = false;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) if (alpha[(y+dy)*w+(x+dx)] === 0) { hasTrans = true; break; }
+      if (hasTrans) d[i * 4 + 3] = Math.round(alpha[i] * 0.6);
+    }
+  }
+
+  // 4. 아트 필터 (포스터라이즈 + 채도 부스트)
+  const levels = 10, step = 256 / levels;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+    for (let c = 0; c < 3; c++) {
+      let v = avg + (d[i+c] - avg) * 1.15; // 채도
+      v = Math.round(v / step) * step; // 포스터라이즈
+      d[i+c] = Math.max(0, Math.min(255, v));
+    }
+  }
+
+  ctx.putImageData(id, 0, 0);
+
+  // 5. 실루엣 추출 (윤곽 기반 3D 돌출용)
+  const silhouette = [];
+  const stepY = Math.max(1, Math.floor(h / 48));
+  for (let sy = 0; sy < h; sy += stepY) {
+    let left = -1, right = -1;
+    for (let sx = 0; sx < w; sx++) {
+      if (d[(sy * w + sx) * 4 + 3] > 40) { if (left === -1) left = sx; right = sx; }
+    }
+    if (left >= 0) silhouette.push([sy / (h - 1), left / w, (right + 1) / w]);
+  }
+
+  return { dataURL: c.toDataURL('image/png'), silhouette: silhouette.length >= 3 ? silhouette : null };
+}
+
+// ─── 방 빌드 (다중 공간) ───
+const roomGroup = new THREE.Group(); scene.add(roomGroup);
+const dimGroup = new THREE.Group(); scene.add(dimGroup);
+let floorMeshes = [];
+
+function buildAllRooms() {
+  roomGroup.traverse(ch => { if (ch.isMesh) { ch.geometry.dispose(); if (ch.material.dispose) ch.material.dispose(); }});
+  roomGroup.clear();
+  floorMeshes = [];
+  spaces.forEach(sp => {
+    const { x, z, w, d, h, floorColor, wallColor } = sp;
+    // 바닥
+    const fm = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ color: floorColor, side: THREE.DoubleSide }));
+    fm.rotation.x = -Math.PI / 2; fm.position.set(x + w/2, 0, z + d/2);
+    fm.userData.isFloor = true; fm.userData.spaceId = sp.id;
+    roomGroup.add(fm); floorMeshes.push(fm);
+    // 그리드
+    const gr = new THREE.GridHelper(Math.max(w, d) * 2, Math.max(w, d) * 2, 0x555555, 0x666666);
+    gr.position.set(x + w/2, 0.002, z + d/2); gr.material.opacity = 0.3; gr.material.transparent = true;
+    roomGroup.add(gr);
+    // 벽
+    const wm = (ww, hh, px, py, pz, ry) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshStandardMaterial({ color: wallColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
+      m.position.set(px, py, pz); m.rotation.y = ry; roomGroup.add(m);
+    };
+    wm(w, h, x+w/2, h/2, z, 0);
+    wm(w, h, x+w/2, h/2, z+d, Math.PI);
+    wm(d, h, x, h/2, z+d/2, Math.PI/2);
+    wm(d, h, x+w, h/2, z+d/2, -Math.PI/2);
+  });
+  updateDims();
+}
+
+function updateDims() {
+  dimGroup.traverse(ch => { if (ch.material) { if (ch.material.map) ch.material.map.dispose(); ch.material.dispose(); } if (ch.geometry) ch.geometry.dispose(); });
+  dimGroup.clear();
+  if (!showDims) return;
+  spaces.forEach(sp => {
+    const { x, z, w, d, h } = sp;
+    // W
+    const wl = makeLabelSprite(`${w.toFixed(1)}m`);
+    wl.position.set(x + w/2, 0.05, z - 0.4); dimGroup.add(wl);
+    const wLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, 0.05, z - 0.25), new THREE.Vector3(x+w, 0.05, z - 0.25)]), new THREE.LineBasicMaterial({ color: 0xffffff }));
+    dimGroup.add(wLine);
+    // D
+    const dl = makeLabelSprite(`${d.toFixed(1)}m`);
+    dl.position.set(x - 0.4, 0.05, z + d/2); dimGroup.add(dl);
+    const dLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 0.25, 0.05, z), new THREE.Vector3(x - 0.25, 0.05, z+d)]), new THREE.LineBasicMaterial({ color: 0xffffff }));
+    dimGroup.add(dLine);
+    // H
+    const hl = makeLabelSprite(`${h.toFixed(1)}m`);
+    hl.position.set(x - 0.4, h/2, z); dimGroup.add(hl);
+    const hLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 0.25, 0, z), new THREE.Vector3(x - 0.25, h, z)]), new THREE.LineBasicMaterial({ color: 0xffffff }));
+    dimGroup.add(hLine);
+  });
+}
+buildAllRooms();
+
+// ─── 실루엣 돌출 지오메트리 ───
+function createExtrudedGeo(silhouette, w3d, h3d, d3d) {
+  const shape = new THREE.Shape();
+  shape.moveTo(silhouette[0][1], 1 - silhouette[0][0]);
+  for (let i = 1; i < silhouette.length; i++) shape.lineTo(silhouette[i][1], 1 - silhouette[i][0]);
+  for (let i = silhouette.length - 1; i >= 0; i--) shape.lineTo(silhouette[i][2], 1 - silhouette[i][0]);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false });
+  geo.scale(w3d, h3d, d3d);
+  geo.translate(-w3d / 2, -h3d / 2, -d3d / 2);
+  return geo;
+}
+
+// ─── 텍스처에서 재질 생성 ───
+function makeTexMaterials(dataURL, color, opacity, silhouette) {
+  const tex = new THREE.TextureLoader().load(dataURL);
+  tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
+  const faceMat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.3 });
+  const sideMat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.5 });
+  if (silhouette) {
+    return { mats: [sideMat, faceMat, faceMat], isExtruded: true }; // ExtrudeGeo groups: sides, front, back
+  }
+  // 폴백: 박스 — alphaTest로 전후면 컷아웃, 옆면 반투명, 윗면 투명
+  const topMat = new THREE.MeshStandardMaterial({ visible: false });
+  const botMat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.3 });
+  return { mats: [sideMat, sideMat, topMat, botMat, faceMat, faceMat], isExtruded: false };
+}
 
 // ─── 장비 추가 ───
 function addEquipment(spec, x = null, z = null) {
+  const sp = activeSpace();
   const id = nextId++;
   const p = { w: spec.w, d: spec.d, h: spec.h, color: c2i(spec.color), opacity: spec.opacity ?? 1, showLabel: spec.showLabel ?? true };
-  const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
-  const mat = new THREE.MeshStandardMaterial({ color: p.color, transparent: p.opacity < 1, opacity: p.opacity });
+  let geo, mat;
+  const sil = spec.silhouette || null;
+  if (spec.textureDataURL) {
+    const tm = makeTexMaterials(spec.textureDataURL, p.color, p.opacity, sil);
+    geo = sil ? createExtrudedGeo(sil, p.w, p.h, p.d) : new THREE.BoxGeometry(p.w, p.h, p.d);
+    mat = tm.mats;
+  } else {
+    geo = new THREE.BoxGeometry(p.w, p.h, p.d);
+    mat = new THREE.MeshStandardMaterial({ color: p.color, transparent: p.opacity < 1, opacity: p.opacity });
+  }
   const mesh = new THREE.Mesh(geo, mat);
   const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x000000 }));
   mesh.add(edges);
   const label = makeLabelSprite(spec.name);
-  label.position.set(0, p.h / 2 + 0.25, 0);
-  label.visible = p.showLabel;
+  label.position.set(0, p.h/2 + 0.25, 0); label.visible = p.showLabel;
   mesh.add(label);
-  if (x === null) x = room.w / 2;
-  if (z === null) z = room.d / 2;
-  mesh.position.set(x, p.h / 2, z);
-  mesh.userData.id = id;
+  if (x === null) x = sp.x + sp.w / 2;
+  if (z === null) z = sp.z + sp.d / 2;
+  mesh.position.set(x, p.h / 2, z); mesh.userData.id = id;
   scene.add(mesh);
-  const item = { id, type: 'equipment', name: spec.name, spec: { ...spec }, mesh, label, edges, rotY: 0, props: p };
-  placed.push(item);
-  refreshPlacedList(); selectItem(id);
-  autoSave();
+  const item = { id, type: 'equipment', name: spec.name, spaceId: sp.id, spec: { ...spec }, mesh, label, edges, rotY: 0, props: p, textureDataURL: spec.textureDataURL || null, silhouette: sil };
+  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
   return item;
 }
 
 function updateEquipVisual(item) {
   const p = item.props;
   item.mesh.geometry.dispose();
-  item.mesh.geometry = new THREE.BoxGeometry(p.w, p.h, p.d);
+  const sil = item.silhouette;
+  item.mesh.geometry = (item.textureDataURL && sil) ? createExtrudedGeo(sil, p.w, p.h, p.d) : new THREE.BoxGeometry(p.w, p.h, p.d);
   item.mesh.remove(item.edges);
   item.edges = new THREE.LineSegments(new THREE.EdgesGeometry(item.mesh.geometry), new THREE.LineBasicMaterial({ color: 0x000000 }));
   item.mesh.add(item.edges);
-  item.mesh.material.color.setHex(p.color);
-  item.mesh.material.opacity = p.opacity;
-  item.mesh.material.transparent = p.opacity < 1;
+  if (Array.isArray(item.mesh.material)) item.mesh.material.forEach(m => m.dispose());
+  else if (item.mesh.material.dispose) item.mesh.material.dispose();
+  if (item.textureDataURL) {
+    item.mesh.material = makeTexMaterials(item.textureDataURL, p.color, p.opacity, sil).mats;
+  } else {
+    item.mesh.material = new THREE.MeshStandardMaterial({ color: p.color, transparent: p.opacity < 1, opacity: p.opacity });
+  }
   if (item.mesh.position.y < p.h / 2) item.mesh.position.y = p.h / 2;
-  item.label.position.y = p.h / 2 + 0.25;
-  item.label.visible = p.showLabel;
+  item.label.position.y = p.h / 2 + 0.25; item.label.visible = p.showLabel;
 }
 
 // ─── 문 ───
-function getWallVecs(wall) {
-  switch (wall) {
-    case 'south': return { right: [1,0], into: [0,1] };
-    case 'north': return { right: [-1,0], into: [0,-1] };
-    case 'west':  return { right: [0,-1], into: [1,0] };
-    case 'east':  return { right: [0,1], into: [-1,0] };
-  }
-}
-function getDoorCenter(wall, pos) {
-  switch (wall) {
-    case 'south': return [pos, 0];
-    case 'north': return [pos, room.d];
-    case 'west':  return [0, pos];
-    case 'east':  return [room.w, pos];
-  }
-}
+function getWV(wall) { return { south:{r:[1,0],i:[0,1]}, north:{r:[-1,0],i:[0,-1]}, west:{r:[0,-1],i:[1,0]}, east:{r:[0,1],i:[-1,0]} }[wall]; }
+function getDC(sp, wall, pos) { return { south:[sp.x+pos,sp.z], north:[sp.x+pos,sp.z+sp.d], west:[sp.x,sp.z+pos], east:[sp.x+sp.w,sp.z+pos] }[wall]; }
 
-function buildDoorArcMesh(p) {
-  const { right, into } = getWallVecs(p.wall);
-  const ctr = getDoorCenter(p.wall, p.pos);
-  const hw = p.width / 2;
-  const hsign = p.hinge === 'left' ? -1 : 1;
-  const hx = ctr[0] + hsign * hw * right[0];
-  const hz = ctr[1] + hsign * hw * right[1];
-  const closedDir = p.hinge === 'left' ? [right[0], right[1]] : [-right[0], -right[1]];
-  const swSign = p.swing === 'in' ? 1 : -1;
-  const openDir = [swSign * into[0], swSign * into[1]];
-  const startA = Math.atan2(closedDir[1], closedDir[0]);
-  const endA = Math.atan2(openDir[1], openDir[0]);
-  let diff = endA - startA;
-  if (diff > Math.PI) diff -= 2 * Math.PI;
-  if (diff < -Math.PI) diff += 2 * Math.PI;
+function buildArcMesh(p, sp) {
+  const v = getWV(p.wall); const ctr = getDC(sp, p.wall, p.pos);
+  const hw = p.width / 2, hs = p.hinge === 'left' ? -1 : 1;
+  const hx = ctr[0] + hs * hw * v.r[0], hz = ctr[1] + hs * hw * v.r[1];
+  const cd = p.hinge === 'left' ? v.r : [-v.r[0], -v.r[1]];
+  const ss = p.swing === 'in' ? 1 : -1;
+  const od = [ss * v.i[0], ss * v.i[1]];
+  const sa = Math.atan2(cd[1], cd[0]), ea = Math.atan2(od[1], od[0]);
+  let df = ea - sa; if (df > Math.PI) df -= 2 * Math.PI; if (df < -Math.PI) df += 2 * Math.PI;
   const pts = [new THREE.Vector3(hx, 0.015, hz)];
-  const segs = 20;
-  for (let i = 0; i <= segs; i++) {
-    const a = startA + diff * (i / segs);
-    pts.push(new THREE.Vector3(hx + p.width * Math.cos(a), 0.015, hz + p.width * Math.sin(a)));
-  }
+  for (let i = 0; i <= 20; i++) { const a = sa + df * (i/20); pts.push(new THREE.Vector3(hx + p.width * Math.cos(a), 0.015, hz + p.width * Math.sin(a))); }
   pts.push(new THREE.Vector3(hx, 0.015, hz));
-  // fill arc area
-  const fillPts2D = [];
-  for (let i = 0; i <= segs; i++) {
-    const a = startA + diff * (i / segs);
-    fillPts2D.push(new THREE.Vector2(p.width * Math.cos(a), p.width * Math.sin(a)));
-  }
-  fillPts2D.push(new THREE.Vector2(0, 0));
-  const shape = new THREE.Shape(fillPts2D);
-  const fillGeo = new THREE.ShapeGeometry(shape);
-  const fillMesh = new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.15, side: THREE.DoubleSide }));
-  fillMesh.rotation.x = -Math.PI / 2;
-  fillMesh.position.set(hx, 0.01, hz);
-  const arcLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffcc00 }));
+  // fill
+  const fp = []; for (let i = 0; i <= 20; i++) { const a = sa + df*(i/20); fp.push(new THREE.Vector2(p.width*Math.cos(a), p.width*Math.sin(a))); }
+  fp.push(new THREE.Vector2(0, 0));
+  const fg = new THREE.ShapeGeometry(new THREE.Shape(fp));
+  const fm = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.12, side: THREE.DoubleSide }));
+  fm.rotation.x = -Math.PI / 2; fm.position.set(hx, 0.01, hz);
   const g = new THREE.Group();
-  g.add(arcLine);
-  g.add(fillMesh);
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffcc00 })));
+  g.add(fm);
   return g;
 }
 
 function addDoor() {
-  const id = nextId++;
-  const p = { width: 0.9, height: 2.1, color: 0xcc8844, wall: 'south', pos: 1.5, hinge: 'left', swing: 'in' };
-  const panel = new THREE.Mesh(
-    new THREE.BoxGeometry(p.width, p.height, 0.06),
-    new THREE.MeshStandardMaterial({ color: p.color })
-  );
-  panel.userData.id = id;
-  scene.add(panel);
-  const arc = buildDoorArcMesh(p);
-  scene.add(arc);
-  const label = makeLabelSprite('문');
-  label.visible = true;
-  panel.add(label);
-  const item = { id, type: 'door', name: '문', mesh: panel, arc, label, props: p };
-  placed.push(item);
-  updateDoorPlacement(item);
-  refreshPlacedList(); selectItem(id);
-  autoSave();
+  const sp = activeSpace(); const id = nextId++;
+  const p = { width: 0.9, height: 2.1, color: 0xcc8844, wall: 'south', pos: sp.w / 2, hinge: 'left', swing: 'in', showLabel: true };
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(p.width, p.height, 0.06), new THREE.MeshStandardMaterial({ color: p.color }));
+  panel.userData.id = id; scene.add(panel);
+  const arc = buildArcMesh(p, sp); scene.add(arc);
+  const label = makeLabelSprite('문'); label.visible = p.showLabel; panel.add(label);
+  const item = { id, type: 'door', name: '문', spaceId: sp.id, mesh: panel, arc, label, props: p };
+  placed.push(item); updateDoorPlace(item); refreshPlacedList(); selectItem(id); autoSave();
   return item;
 }
 
-function updateDoorPlacement(item) {
-  const p = item.props;
-  const hw = p.width / 2;
-  if (p.wall === 'south' || p.wall === 'north') p.pos = Math.max(hw, Math.min(room.w - hw, p.pos));
-  else p.pos = Math.max(hw, Math.min(room.d - hw, p.pos));
-  item.mesh.geometry.dispose();
-  item.mesh.geometry = new THREE.BoxGeometry(p.width, p.height, 0.06);
+function updateDoorPlace(item) {
+  const sp = spaces.find(s => s.id === item.spaceId) || activeSpace();
+  const p = item.props, hw = p.width / 2;
+  if (p.wall === 'south' || p.wall === 'north') p.pos = Math.max(hw, Math.min(sp.w - hw, p.pos));
+  else p.pos = Math.max(hw, Math.min(sp.d - hw, p.pos));
+  item.mesh.geometry.dispose(); item.mesh.geometry = new THREE.BoxGeometry(p.width, p.height, 0.06);
   item.mesh.material.color.setHex(p.color);
-  const ctr = getDoorCenter(p.wall, p.pos);
-  const off = 0.04;
+  const ctr = getDC(sp, p.wall, p.pos); const off = 0.04;
   let px, pz, ry;
-  switch (p.wall) {
-    case 'south': px = ctr[0]; pz = off;          ry = 0; break;
-    case 'north': px = ctr[0]; pz = room.d - off; ry = Math.PI; break;
-    case 'west':  px = off;          pz = ctr[1]; ry = -Math.PI / 2; break;
-    case 'east':  px = room.w - off; pz = ctr[1]; ry = Math.PI / 2; break;
-  }
-  item.mesh.position.set(px, p.height / 2, pz);
-  item.mesh.rotation.y = ry;
+  switch (p.wall) { case 'south': px=ctr[0]; pz=sp.z+off; ry=0; break; case 'north': px=ctr[0]; pz=sp.z+sp.d-off; ry=Math.PI; break; case 'west': px=sp.x+off; pz=ctr[1]; ry=-Math.PI/2; break; case 'east': px=sp.x+sp.w-off; pz=ctr[1]; ry=Math.PI/2; break; }
+  item.mesh.position.set(px, p.height / 2, pz); item.mesh.rotation.y = ry;
   item.label.position.set(0, p.height / 2 + 0.2, 0);
-  // rebuild arc
-  scene.remove(item.arc);
-  item.arc = buildDoorArcMesh(p);
-  scene.add(item.arc);
+  scene.remove(item.arc); item.arc = buildArcMesh(p, sp); scene.add(item.arc);
 }
 
-function snapDoorToWall(item, hx, hz) {
-  const { w, d } = room;
+function snapDoor(item, hx, hz) {
+  const sp = spaces.find(s => s.id === item.spaceId) || activeSpace();
   const cands = [
-    { wall: 'south', dist: Math.abs(hz), pos: hx },
-    { wall: 'north', dist: Math.abs(d - hz), pos: hx },
-    { wall: 'west', dist: Math.abs(hx), pos: hz },
-    { wall: 'east', dist: Math.abs(w - hx), pos: hz },
+    { wall: 'south', dist: Math.abs(hz - sp.z), pos: hx - sp.x },
+    { wall: 'north', dist: Math.abs(hz - (sp.z + sp.d)), pos: hx - sp.x },
+    { wall: 'west', dist: Math.abs(hx - sp.x), pos: hz - sp.z },
+    { wall: 'east', dist: Math.abs(hx - (sp.x + sp.w)), pos: hz - sp.z },
   ];
   cands.sort((a, b) => a.dist - b.dist);
-  item.props.wall = cands[0].wall;
-  item.props.pos = cands[0].pos;
-  updateDoorPlacement(item);
+  item.props.wall = cands[0].wall; item.props.pos = cands[0].pos;
+  updateDoorPlace(item);
 }
 
 // ─── 방호벽 ───
 function addBarrier() {
-  const id = nextId++;
+  const sp = activeSpace(); const id = nextId++;
   const p = { w: 2.0, d: 0.05, h: 1.8, color: 0x88ccff, opacity: 0.3, showLabel: false };
   const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
   const mat = new THREE.MeshStandardMaterial({ color: p.color, transparent: true, opacity: p.opacity, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geo, mat);
   const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x4488cc }));
   mesh.add(edges);
-  const label = makeLabelSprite('방호벽');
-  label.position.set(0, p.h / 2 + 0.2, 0);
-  label.visible = p.showLabel;
-  mesh.add(label);
-  mesh.position.set(room.w / 2, p.h / 2, room.d / 2);
-  mesh.userData.id = id;
-  scene.add(mesh);
-  const item = { id, type: 'barrier', name: '방호벽', mesh, label, edges, rotY: 0, props: p };
-  placed.push(item);
-  refreshPlacedList(); selectItem(id);
-  autoSave();
+  const label = makeLabelSprite('방호벽'); label.position.set(0, p.h/2+0.2, 0); label.visible = p.showLabel; mesh.add(label);
+  mesh.position.set(sp.x + sp.w/2, p.h/2, sp.z + sp.d/2); mesh.userData.id = id; scene.add(mesh);
+  const item = { id, type: 'barrier', name: '방호벽', spaceId: sp.id, mesh, label, edges, rotY: 0, props: p };
+  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
   return item;
 }
-
-function updateBarrierVisual(item) {
+function updateBarrierVis(item) {
   const p = item.props;
-  item.mesh.geometry.dispose();
-  item.mesh.geometry = new THREE.BoxGeometry(p.w, p.h, p.d);
-  item.mesh.remove(item.edges);
-  item.edges = new THREE.LineSegments(new THREE.EdgesGeometry(item.mesh.geometry), new THREE.LineBasicMaterial({ color: 0x4488cc }));
-  item.mesh.add(item.edges);
-  item.mesh.material.color.setHex(p.color);
-  item.mesh.material.opacity = p.opacity;
-  item.mesh.position.y = p.h / 2;
-  item.label.position.y = p.h / 2 + 0.2;
-  item.label.visible = p.showLabel;
+  item.mesh.geometry.dispose(); item.mesh.geometry = new THREE.BoxGeometry(p.w, p.h, p.d);
+  item.mesh.remove(item.edges); item.edges = new THREE.LineSegments(new THREE.EdgesGeometry(item.mesh.geometry), new THREE.LineBasicMaterial({ color: 0x4488cc })); item.mesh.add(item.edges);
+  item.mesh.material.color.setHex(p.color); item.mesh.material.opacity = p.opacity;
+  item.mesh.position.y = p.h / 2; item.label.position.y = p.h / 2 + 0.2; item.label.visible = p.showLabel;
 }
 
 // ─── 사람 ───
 function addPerson() {
-  const id = nextId++;
+  const sp = activeSpace(); const id = nextId++;
   const p = { color: 0xff9933, showLabel: true };
-  const group = new THREE.Group();
-  group.userData.id = id;
-  // pickbox (투명)
-  const pick = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.7, 0.3), new THREE.MeshBasicMaterial({ visible: false }));
-  pick.position.y = 0.85; pick.userData.id = id;
-  group.add(pick);
-  // 몸통
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.14, 0.55, 8), new THREE.MeshStandardMaterial({ color: p.color }));
-  torso.position.y = 0.85; group.add(torso);
-  // 머리
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffcc88 }));
-  head.position.y = 1.3; group.add(head);
-  // 다리
-  [-0.07, 0.07].forEach(x => {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.55, 6), new THREE.MeshStandardMaterial({ color: 0x334466 }));
-    leg.position.set(x, 0.275, 0); group.add(leg);
-  });
-  // 팔
-  [-0.24, 0.24].forEach(x => {
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xffcc88 }));
-    arm.position.set(x, 0.78, 0); group.add(arm);
-  });
-  const label = makeLabelSprite('사람');
-  label.position.set(0, 1.65, 0);
-  label.visible = p.showLabel;
-  group.add(label);
-  group.position.set(room.w / 2, 0, room.d / 2);
-  scene.add(group);
-  const item = { id, type: 'person', name: '사람', mesh: group, pickBox: pick, torso, label, rotY: 0, props: p };
-  placed.push(item);
-  refreshPlacedList(); selectItem(id);
-  autoSave();
+  const g = new THREE.Group(); g.userData.id = id;
+  const pick = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.7, 0.3), new THREE.MeshBasicMaterial({ visible: false })); pick.position.y = 0.85; pick.userData.id = id; g.add(pick);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.14, 0.55, 8), new THREE.MeshStandardMaterial({ color: p.color })); torso.position.y = 0.85; g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffcc88 })); head.position.y = 1.3; g.add(head);
+  [-0.07, 0.07].forEach(x => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.55, 6), new THREE.MeshStandardMaterial({ color: 0x334466 })); l.position.set(x, 0.275, 0); g.add(l); });
+  [-0.24, 0.24].forEach(x => { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xffcc88 })); a.position.set(x, 0.78, 0); g.add(a); });
+  const label = makeLabelSprite('사람'); label.position.set(0, 1.65, 0); label.visible = p.showLabel; g.add(label);
+  g.position.set(sp.x + sp.w/2, 0, sp.z + sp.d/2); scene.add(g);
+  const item = { id, type: 'person', name: '사람', spaceId: sp.id, mesh: g, pickBox: pick, torso, label, rotY: 0, props: p };
+  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
   return item;
+}
+
+// ─── 로봇팔 ───
+function addRobotArm() {
+  const sp = activeSpace(); const id = nextId++;
+  const p = { color: 0xff9933, reach: 1.2, showLabel: true };
+  const g = new THREE.Group(); g.userData.id = id;
+  buildRobotMeshes(g, p);
+  const label = makeLabelSprite('로봇팔'); label.position.set(0, 1.6, 0); label.visible = p.showLabel; g.add(label);
+  g.position.set(sp.x + sp.w/2, 0, sp.z + sp.d/2); scene.add(g);
+  const pick = g.children.find(c => c.userData.isPick);
+  const item = { id, type: 'robot', name: '로봇팔', spaceId: sp.id, mesh: g, pickBox: pick, label, rotY: 0, props: p };
+  placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
+  return item;
+}
+
+function buildRobotMeshes(g, p) {
+  // 기존 자식 제거 (라벨 제외)
+  const toRemove = g.children.filter(c => c !== g.children.find(cc => cc.isSprite));
+  toRemove.forEach(c => { g.remove(c); if (c.geometry) c.geometry.dispose(); if (c.material) { if (c.material.dispose) c.material.dispose(); } });
+
+  const pick = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.5, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
+  pick.position.y = 0.75; pick.userData.id = g.userData.id; pick.userData.isPick = true; g.add(pick);
+  // 베이스
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+  base.position.y = 0.06; g.add(base);
+  // 하부암
+  const lo = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: p.color }));
+  lo.position.set(0, 0.42, 0); g.add(lo);
+  // 관절
+  const j1 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshStandardMaterial({ color: 0x666666 }));
+  j1.position.set(0, 0.72, 0); g.add(j1);
+  // 상부암 (기울어짐)
+  const up = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), new THREE.MeshStandardMaterial({ color: p.color }));
+  up.position.set(0.18, 0.92, 0); up.rotation.z = -Math.PI / 5; g.add(up);
+  // 관절2
+  const j2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshStandardMaterial({ color: 0x666666 }));
+  j2.position.set(0.36, 1.08, 0); g.add(j2);
+  // 엔드이펙터
+  const ee = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.14), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+  ee.position.set(0.36, 1.14, 0); g.add(ee);
+  // 리치 원 (바닥)
+  const rc = new THREE.Mesh(new THREE.CircleGeometry(p.reach, 48), new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.1, side: THREE.DoubleSide }));
+  rc.rotation.x = -Math.PI / 2; rc.position.y = 0.008; g.add(rc);
+  // 리치 원 테두리
+  const rpts = Array.from({ length: 65 }, (_, i) => { const a = (i/64) * Math.PI * 2; return new THREE.Vector3(p.reach * Math.cos(a), 0.012, p.reach * Math.sin(a)); });
+  const rl = new THREE.Line(new THREE.BufferGeometry().setFromPoints(rpts), new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: 0.5 }));
+  g.add(rl);
+}
+
+function updateRobotVisual(item) {
+  const label = item.label;
+  const id = item.mesh.userData.id;
+  // 모든 자식 제거 후 재생성
+  while (item.mesh.children.length) { const c = item.mesh.children[0]; item.mesh.remove(c); }
+  buildRobotMeshes(item.mesh, item.props);
+  item.mesh.userData.id = id;
+  item.pickBox = item.mesh.children.find(c => c.userData.isPick);
+  // 라벨 재추가
+  item.label = makeLabelSprite('로봇팔');
+  item.label.position.set(0, 1.6, 0); item.label.visible = item.props.showLabel;
+  item.mesh.add(item.label);
 }
 
 // ─── 삭제/선택 ───
 function removeItem(id) {
-  const idx = placed.findIndex(p => p.id === id);
-  if (idx < 0) return;
-  const item = placed[idx];
-  scene.remove(item.mesh);
-  if (item.arc) scene.remove(item.arc);
+  const idx = placed.findIndex(p => p.id === id); if (idx < 0) return;
+  const it = placed[idx]; scene.remove(it.mesh); if (it.arc) scene.remove(it.arc);
   placed.splice(idx, 1);
   if (selectedId === id) selectedId = null;
-  refreshPlacedList(); refreshEditPanel();
-  autoSave();
+  refreshPlacedList(); refreshEditPanel(); autoSave();
 }
 
 function selectItem(id) {
@@ -552,72 +658,105 @@ function selectItem(id) {
   placed.forEach(p => {
     let mat;
     if (p.type === 'person') mat = p.torso?.material;
-    else if (p.type === 'door') mat = p.mesh.material;
-    else mat = p.mesh.material;
-    if (mat && mat.emissive) {
-      mat.emissive.setHex(p.id === id ? 0x4ec9b0 : 0x000000);
-      mat.emissiveIntensity = p.id === id ? 0.4 : 0;
-    }
+    else if (p.type === 'robot') { const arm = p.mesh.children.find(c => c.isMesh && c.material?.color && !c.userData.isPick && c.geometry?.parameters?.height === 0.6); mat = arm?.material; }
+    else mat = Array.isArray(p.mesh.material) ? p.mesh.material[0] : p.mesh.material;
+    if (mat?.emissive) { mat.emissive.setHex(p.id === id ? 0x4ec9b0 : 0); mat.emissiveIntensity = p.id === id ? 0.4 : 0; }
   });
   refreshPlacedList(); refreshEditPanel();
 }
 
-// ─── UI 렌더링 ───
-const libraryEl = document.getElementById('library');
-
+// ─── UI ───
 function renderLibrary() {
-  libraryEl.innerHTML = '';
+  const el = document.getElementById('library'); el.innerHTML = '';
   LIBRARY.forEach((spec, idx) => {
-    const row = document.createElement('div');
-    row.className = 'lib-row';
+    const row = document.createElement('div'); row.className = 'lib-row';
     const cat = spec.category === 'tabletop' ? '📐' : (spec.surface ? '🔲' : '');
-    row.innerHTML = `<div class="name">${spec.name} ${cat}<small>${spec.w}×${spec.d}×${spec.h}m</small></div><button class="sm">+</button>`;
+    const img = spec.textureDataURL ? `<img src="${spec.textureDataURL}" style="width:20px;height:20px;border-radius:2px;object-fit:cover;">` : '';
+    row.innerHTML = `<div class="name">${img}${spec.name} ${cat}<small>${spec.w}×${spec.d}×${spec.h}m</small></div><button class="sm">+</button>`;
     row.querySelector('.name').onclick = () => { editingLibIdx = editingLibIdx === idx ? null : idx; renderLibrary(); };
     row.querySelector('button').onclick = e => { e.stopPropagation(); addEquipment(spec); };
-    libraryEl.appendChild(row);
+    el.appendChild(row);
     if (editingLibIdx === idx) {
-      const ed = document.createElement('div');
-      ed.className = 'lib-edit';
+      const ed = document.createElement('div'); ed.className = 'lib-edit';
       ed.innerHTML = `
         <label>이름</label><input type="text" data-k="name" value="${spec.name}">
         <div class="row"><div><label>W</label><input type="number" step="0.05" data-k="w" value="${spec.w}"></div>
         <div><label>D</label><input type="number" step="0.05" data-k="d" value="${spec.d}"></div>
         <div><label>H</label><input type="number" step="0.05" data-k="h" value="${spec.h}"></div></div>
-        <label>색상</label><input type="color" data-k="color" id="libColor${idx}" value="${spec.color}">
-        ${paletteHTML('libColor' + idx)}
-        <label>투명도 ${(spec.opacity ?? 1).toFixed(2)}</label>
-        <input type="range" min="0" max="1" step="0.05" data-k="opacity" value="${spec.opacity ?? 1}">
-        <div class="chk"><input type="checkbox" data-k="showLabel" ${spec.showLabel !== false ? 'checked' : ''}> 라벨 기본표시</div>
-        <label>카테고리</label><select data-k="category">
-          <option value="floor" ${spec.category === 'floor' ? 'selected' : ''}>바닥</option>
-          <option value="tabletop" ${spec.category === 'tabletop' ? 'selected' : ''}>테이블탑</option>
-        </select>
-        <div class="chk"><input type="checkbox" data-k="surface" ${spec.surface ? 'checked' : ''}> 작업면</div>
-        <div class="row"><button class="sm" data-act="place">+ 배치</button><button class="sm ghost" data-act="close">닫기</button></div>
-      `;
+        <label>색상</label><input type="color" data-k="color" id="lc${idx}" value="${spec.color}">
+        ${paletteHTML('lc'+idx)}
+        <label>투명도 ${(spec.opacity??1).toFixed(2)}</label>
+        <input type="range" min="0" max="1" step="0.05" data-k="opacity" value="${spec.opacity??1}">
+        <div class="chk"><input type="checkbox" data-k="showLabel" ${spec.showLabel!==false?'checked':''}> 라벨</div>
+        <label>카테고리</label><select data-k="category"><option value="floor" ${spec.category==='floor'?'selected':''}>바닥</option><option value="tabletop" ${spec.category==='tabletop'?'selected':''}>테이블탑</option></select>
+        <div class="chk"><input type="checkbox" data-k="surface" ${spec.surface?'checked':''}> 작업면</div>
+        <label>장비 사진</label>
+        <button class="sm ghost" id="imgBtn${idx}">📷 사진 업로드</button>
+        <input type="file" id="imgFile${idx}" accept="image/*">
+        ${spec.textureDataURL ? `<img class="img-preview" src="${spec.textureDataURL}"><button class="sm danger" id="imgDel${idx}">사진 제거</button>` : ''}
+        <div class="row" style="margin-top:6px"><button class="sm" data-act="place">+ 배치</button><button class="sm ghost" data-act="close">닫기</button></div>`;
       ed.querySelectorAll('[data-k]').forEach(el => {
-        el.oninput = () => {
-          const k = el.dataset.k;
-          spec[k] = el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.type === 'range') ? parseFloat(el.value) : el.value;
-        };
+        el.oninput = () => { const k = el.dataset.k; spec[k] = el.type==='checkbox'?el.checked:(el.type==='number'||el.type==='range')?parseFloat(el.value):el.value; };
       });
       ed.querySelector('[data-act="place"]').onclick = () => addEquipment(spec);
       ed.querySelector('[data-act="close"]').onclick = () => { editingLibIdx = null; renderLibrary(); };
-      libraryEl.appendChild(ed);
+      // 이미지 업로드
+      const imgBtn = ed.querySelector(`#imgBtn${idx}`);
+      const imgFile = ed.querySelector(`#imgFile${idx}`);
+      imgBtn.onclick = () => imgFile.click();
+      imgFile.onchange = e => {
+        const f = e.target.files[0]; if (!f) return;
+        const r = new FileReader(); r.onload = ev => {
+          const img = new Image(); img.onload = () => {
+            const result = processImage(img);
+            spec.textureDataURL = result.dataURL;
+            spec.silhouette = result.silhouette;
+            renderLibrary();
+          }; img.src = ev.target.result;
+        }; r.readAsDataURL(f);
+      };
+      const imgDel = ed.querySelector(`#imgDel${idx}`);
+      if (imgDel) imgDel.onclick = () => { delete spec.textureDataURL; renderLibrary(); };
+      el.appendChild(ed);
     }
   });
 }
 renderLibrary();
 
+function renderSpaceList() {
+  const el = document.getElementById('spaceList'); el.innerHTML = '';
+  spaces.forEach(sp => {
+    const d = document.createElement('div');
+    d.className = 'space-row' + (sp.id === activeSpaceId ? ' active' : '');
+    d.innerHTML = `<span>${sp.name} (${sp.w}×${sp.d}m)</span><button class="sm danger" data-del="${sp.id}">✕</button>`;
+    d.querySelector('span').onclick = () => { activeSpaceId = sp.id; syncSpaceUI(); renderSpaceList(); refreshPlacedList(); };
+    d.querySelector('button').onclick = e => { e.stopPropagation(); if (spaces.length <= 1) return; spaces = spaces.filter(s => s.id !== sp.id); placed.filter(p => p.spaceId === sp.id).forEach(p => removeItem(p.id)); if (activeSpaceId === sp.id) activeSpaceId = spaces[0].id; buildAllRooms(); syncSpaceUI(); renderSpaceList(); refreshPlacedList(); autoSave(); };
+    el.appendChild(d);
+  });
+}
+renderSpaceList();
+
+function syncSpaceUI() {
+  const sp = activeSpace(); if (!sp) return;
+  document.getElementById('roomW').value = sp.w;
+  document.getElementById('roomD').value = sp.d;
+  document.getElementById('roomH').value = sp.h;
+  document.getElementById('floorColor').value = i2h(sp.floorColor);
+  document.getElementById('wallColor').value = i2h(sp.wallColor);
+  document.getElementById('spaceName').value = sp.name;
+}
+syncSpaceUI();
+
 function refreshPlacedList() {
-  const el = document.getElementById('placedList');
-  el.innerHTML = '';
-  if (!placed.length) { el.innerHTML = '<small style="color:#666">없음</small>'; return; }
-  placed.forEach(p => {
+  const el = document.getElementById('placedList'); el.innerHTML = '';
+  const items = placed.filter(p => p.spaceId === activeSpaceId);
+  if (!items.length) { el.innerHTML = '<small style="color:#666">없음</small>'; return; }
+  items.forEach(p => {
     const d = document.createElement('div');
     d.className = 'placed-row' + (p.id === selectedId ? ' selected' : '');
-    const bc = { equipment: 'equip', door: 'door', barrier: 'barrier', person: 'person' }[p.type];
-    d.innerHTML = `<span>#${p.id} ${p.name}</span><span class="badge ${bc}">${p.type === 'equipment' ? '장비' : p.type === 'door' ? '문' : p.type === 'barrier' ? '방호벽' : '사람'}</span>`;
+    const bc = { equipment:'equip', door:'door', barrier:'barrier', person:'person', robot:'robot' }[p.type];
+    const nm = { equipment:'장비', door:'문', barrier:'방호벽', person:'사람', robot:'로봇' }[p.type];
+    d.innerHTML = `<span>#${p.id} ${p.name}</span><span class="badge ${bc}">${nm}</span>`;
     d.onclick = () => selectItem(p.id);
     el.appendChild(d);
   });
@@ -632,44 +771,48 @@ function refreshEditPanel() {
   else if (item.type === 'door') renderDoorEdit(el, item);
   else if (item.type === 'barrier') renderBarrierEdit(el, item);
   else if (item.type === 'person') renderPersonEdit(el, item);
+  else if (item.type === 'robot') renderRobotEdit(el, item);
 }
 
 function renderEquipEdit(el, item) {
   const p = item.props;
   el.innerHTML = `
     <div style="margin-bottom:4px"><b>#${item.id} ${item.name}</b> <span class="badge equip">장비</span></div>
+    ${item.textureDataURL ? `<img class="img-preview" src="${item.textureDataURL}">` : ''}
+    <label>사진</label><button class="sm ghost" id="eImgBtn">📷 업로드</button><input type="file" id="eImgFile" accept="image/*">
+    ${item.textureDataURL ? `<button class="sm danger" id="eImgDel">제거</button>` : ''}
     <div class="row"><div><label>X</label><input type="number" id="eX" step="0.05" value="${item.mesh.position.x.toFixed(2)}"></div>
     <div><label>Z</label><input type="number" id="eZ" step="0.05" value="${item.mesh.position.z.toFixed(2)}"></div></div>
-    <label>회전°</label><input type="number" id="eRot" step="15" value="${(item.rotY * 180 / Math.PI).toFixed(0)}">
-    <div class="row"><button class="sm" id="rotL">⟲ -90°</button><button class="sm" id="rotR">⟳ +90°</button></div>
+    <label>회전°</label><input type="number" id="eRot" step="15" value="${(item.rotY*180/Math.PI).toFixed(0)}">
+    <div class="row"><button class="sm" id="rotL">⟲-90°</button><button class="sm" id="rotR">⟳+90°</button></div>
     <div class="row"><div><label>W</label><input type="number" id="eW" step="0.05" value="${p.w}"></div>
     <div><label>D</label><input type="number" id="eD" step="0.05" value="${p.d}"></div>
     <div><label>H</label><input type="number" id="eH" step="0.05" value="${p.h}"></div></div>
-    <label>색상</label><input type="color" id="eColor" value="${i2h(p.color)}">
-    ${paletteHTML('eColor')}
-    <label>투명도 <span id="eOV">${p.opacity.toFixed(2)}</span></label>
-    <input type="range" id="eOp" min="0" max="1" step="0.05" value="${p.opacity}">
-    <div class="chk"><input type="checkbox" id="eLbl" ${p.showLabel ? 'checked' : ''}> 라벨</div>
+    <label>색상</label><input type="color" id="eC" value="${i2h(p.color)}">${paletteHTML('eC')}
+    <label>투명도 <span id="eOV">${p.opacity.toFixed(2)}</span></label><input type="range" id="eOp" min="0" max="1" step="0.05" value="${p.opacity}">
+    <div class="chk"><input type="checkbox" id="eLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <button class="danger" id="delBtn">삭제</button>`;
   const apply = () => {
     item.mesh.position.x = parseFloat(el.querySelector('#eX').value);
     item.mesh.position.z = parseFloat(el.querySelector('#eZ').value);
-    item.rotY = parseFloat(el.querySelector('#eRot').value) * Math.PI / 180;
-    item.mesh.rotation.y = item.rotY;
-    p.w = parseFloat(el.querySelector('#eW').value);
-    p.d = parseFloat(el.querySelector('#eD').value);
-    p.h = parseFloat(el.querySelector('#eH').value);
-    p.color = c2i(el.querySelector('#eColor').value);
-    p.opacity = parseFloat(el.querySelector('#eOp').value);
-    p.showLabel = el.querySelector('#eLbl').checked;
+    item.rotY = parseFloat(el.querySelector('#eRot').value)*Math.PI/180; item.mesh.rotation.y = item.rotY;
+    p.w = parseFloat(el.querySelector('#eW').value); p.d = parseFloat(el.querySelector('#eD').value); p.h = parseFloat(el.querySelector('#eH').value);
+    p.color = c2i(el.querySelector('#eC').value); p.opacity = parseFloat(el.querySelector('#eOp').value); p.showLabel = el.querySelector('#eLbl').checked;
     el.querySelector('#eOV').textContent = p.opacity.toFixed(2);
-    updateEquipVisual(item);
-    autoSave();
+    updateEquipVisual(item); autoSave();
   };
-  ['eX','eZ','eRot','eW','eD','eH','eColor','eOp','eLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
+  ['eX','eZ','eRot','eW','eD','eH','eC','eOp','eLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
   el.querySelector('#rotL').onclick = () => { item.rotY -= Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
   el.querySelector('#rotR').onclick = () => { item.rotY += Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
+  el.querySelector('#eImgBtn').onclick = () => el.querySelector('#eImgFile').click();
+  el.querySelector('#eImgFile').onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = ev => {
+      const img = new Image(); img.onload = () => { const r = processImage(img); item.textureDataURL = r.dataURL; item.silhouette = r.silhouette; updateEquipVisual(item); refreshEditPanel(); autoSave(); }; img.src = ev.target.result;
+    }; r.readAsDataURL(f);
+  };
+  if (el.querySelector('#eImgDel')) el.querySelector('#eImgDel').onclick = () => { item.textureDataURL = null; updateEquipVisual(item); refreshEditPanel(); autoSave(); };
 }
 
 function renderDoorEdit(el, item) {
@@ -678,32 +821,15 @@ function renderDoorEdit(el, item) {
     <div style="margin-bottom:4px"><b>#${item.id} 문</b> <span class="badge door">문</span></div>
     <label>벽</label><select id="dW"><option value="south" ${p.wall==='south'?'selected':''}>남</option><option value="north" ${p.wall==='north'?'selected':''}>북</option>
     <option value="east" ${p.wall==='east'?'selected':''}>동</option><option value="west" ${p.wall==='west'?'selected':''}>서</option></select>
-    <label>벽 위치 (m)</label><input type="number" id="dP" step="0.05" value="${p.pos.toFixed(2)}">
-    <div class="row"><div><label>너비</label><input type="number" id="dWi" step="0.05" value="${p.width}"></div>
-    <div><label>높이</label><input type="number" id="dH" step="0.05" value="${p.height}"></div></div>
-    <label>경첩</label><select id="dHinge">
-      <option value="left" ${p.hinge==='left'?'selected':''}>왼쪽</option>
-      <option value="right" ${p.hinge==='right'?'selected':''}>오른쪽</option></select>
-    <label>열림 방향</label><select id="dSwing">
-      <option value="in" ${p.swing==='in'?'selected':''}>안쪽 (실내)</option>
-      <option value="out" ${p.swing==='out'?'selected':''}>바깥쪽</option></select>
-    <label>색상</label><input type="color" id="dC" value="${i2h(p.color)}">
-    ${paletteHTML('dC')}
+    <label>벽 위치(m)</label><input type="number" id="dP" step="0.05" value="${p.pos.toFixed(2)}">
+    <div class="row"><div><label>너비</label><input type="number" id="dWi" step="0.05" value="${p.width}"></div><div><label>높이</label><input type="number" id="dH" step="0.05" value="${p.height}"></div></div>
+    <label>경첩</label><select id="dHi"><option value="left" ${p.hinge==='left'?'selected':''}>왼쪽</option><option value="right" ${p.hinge==='right'?'selected':''}>오른쪽</option></select>
+    <label>열림</label><select id="dSw"><option value="in" ${p.swing==='in'?'selected':''}>안쪽</option><option value="out" ${p.swing==='out'?'selected':''}>바깥쪽</option></select>
+    <label>색상</label><input type="color" id="dC" value="${i2h(p.color)}">${paletteHTML('dC')}
+    <div class="chk"><input type="checkbox" id="dLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <button class="danger" id="delBtn">삭제</button>`;
-  const apply = () => {
-    p.wall = el.querySelector('#dW').value;
-    p.pos = parseFloat(el.querySelector('#dP').value);
-    p.width = parseFloat(el.querySelector('#dWi').value);
-    p.height = parseFloat(el.querySelector('#dH').value);
-    p.hinge = el.querySelector('#dHinge').value;
-    p.swing = el.querySelector('#dSwing').value;
-    p.color = c2i(el.querySelector('#dC').value);
-    updateDoorPlacement(item); autoSave();
-  };
-  ['dW','dP','dWi','dH','dHinge','dSwing','dC'].forEach(k => el.querySelector('#'+k).oninput = apply);
-  el.querySelector('#dW').onchange = apply;
-  el.querySelector('#dHinge').onchange = apply;
-  el.querySelector('#dSwing').onchange = apply;
+  const apply = () => { p.wall=el.querySelector('#dW').value; p.pos=parseFloat(el.querySelector('#dP').value); p.width=parseFloat(el.querySelector('#dWi').value); p.height=parseFloat(el.querySelector('#dH').value); p.hinge=el.querySelector('#dHi').value; p.swing=el.querySelector('#dSw').value; p.color=c2i(el.querySelector('#dC').value); p.showLabel=el.querySelector('#dLbl').checked; item.label.visible=p.showLabel; updateDoorPlace(item); autoSave(); };
+  ['dW','dP','dWi','dH','dHi','dSw','dC','dLbl'].forEach(k => { const e = el.querySelector('#'+k); e.oninput = apply; if (e.tagName === 'SELECT') e.onchange = apply; });
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
 }
 
@@ -711,33 +837,15 @@ function renderBarrierEdit(el, item) {
   const p = item.props;
   el.innerHTML = `
     <div style="margin-bottom:4px"><b>#${item.id} 방호벽</b> <span class="badge barrier">방호벽</span></div>
-    <div class="row"><div><label>X</label><input type="number" id="bX" step="0.05" value="${item.mesh.position.x.toFixed(2)}"></div>
-    <div><label>Z</label><input type="number" id="bZ" step="0.05" value="${item.mesh.position.z.toFixed(2)}"></div></div>
-    <label>회전°</label><input type="number" id="bRot" step="15" value="${(item.rotY * 180 / Math.PI).toFixed(0)}">
-    <div class="row"><button class="sm" id="rotL">⟲ -90°</button><button class="sm" id="rotR">⟳ +90°</button></div>
-    <div class="row"><div><label>길이 W</label><input type="number" id="bW" step="0.05" value="${p.w}"></div>
-    <div><label>두께</label><input type="number" id="bD" step="0.01" value="${p.d}"></div>
-    <div><label>높이</label><input type="number" id="bH" step="0.05" value="${p.h}"></div></div>
-    <label>색상</label><input type="color" id="bC" value="${i2h(p.color)}">
-    ${paletteHTML('bC')}
-    <label>투명도 <span id="bOV">${p.opacity.toFixed(2)}</span></label>
-    <input type="range" id="bOp" min="0" max="1" step="0.05" value="${p.opacity}">
-    <div class="chk"><input type="checkbox" id="bLbl" ${p.showLabel ? 'checked' : ''}> 라벨</div>
+    <div class="row"><div><label>X</label><input type="number" id="bX" step="0.05" value="${item.mesh.position.x.toFixed(2)}"></div><div><label>Z</label><input type="number" id="bZ" step="0.05" value="${item.mesh.position.z.toFixed(2)}"></div></div>
+    <label>회전°</label><input type="number" id="bRot" step="15" value="${(item.rotY*180/Math.PI).toFixed(0)}">
+    <div class="row"><button class="sm" id="rotL">⟲-90°</button><button class="sm" id="rotR">⟳+90°</button></div>
+    <div class="row"><div><label>길이</label><input type="number" id="bW" step="0.05" value="${p.w}"></div><div><label>두께</label><input type="number" id="bD" step="0.01" value="${p.d}"></div><div><label>높이</label><input type="number" id="bH" step="0.05" value="${p.h}"></div></div>
+    <label>색상</label><input type="color" id="bC" value="${i2h(p.color)}">${paletteHTML('bC')}
+    <label>투명도 <span id="bOV">${p.opacity.toFixed(2)}</span></label><input type="range" id="bOp" min="0" max="1" step="0.05" value="${p.opacity}">
+    <div class="chk"><input type="checkbox" id="bLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <button class="danger" id="delBtn">삭제</button>`;
-  const apply = () => {
-    item.mesh.position.x = parseFloat(el.querySelector('#bX').value);
-    item.mesh.position.z = parseFloat(el.querySelector('#bZ').value);
-    item.rotY = parseFloat(el.querySelector('#bRot').value) * Math.PI / 180;
-    item.mesh.rotation.y = item.rotY;
-    p.w = parseFloat(el.querySelector('#bW').value);
-    p.d = parseFloat(el.querySelector('#bD').value);
-    p.h = parseFloat(el.querySelector('#bH').value);
-    p.color = c2i(el.querySelector('#bC').value);
-    p.opacity = parseFloat(el.querySelector('#bOp').value);
-    p.showLabel = el.querySelector('#bLbl').checked;
-    el.querySelector('#bOV').textContent = p.opacity.toFixed(2);
-    updateBarrierVisual(item); autoSave();
-  };
+  const apply = () => { item.mesh.position.x=parseFloat(el.querySelector('#bX').value); item.mesh.position.z=parseFloat(el.querySelector('#bZ').value); item.rotY=parseFloat(el.querySelector('#bRot').value)*Math.PI/180; item.mesh.rotation.y=item.rotY; p.w=parseFloat(el.querySelector('#bW').value); p.d=parseFloat(el.querySelector('#bD').value); p.h=parseFloat(el.querySelector('#bH').value); p.color=c2i(el.querySelector('#bC').value); p.opacity=parseFloat(el.querySelector('#bOp').value); p.showLabel=el.querySelector('#bLbl').checked; el.querySelector('#bOV').textContent=p.opacity.toFixed(2); updateBarrierVis(item); autoSave(); };
   ['bX','bZ','bRot','bW','bD','bH','bC','bOp','bLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
   el.querySelector('#rotL').onclick = () => { item.rotY -= Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
   el.querySelector('#rotR').onclick = () => { item.rotY += Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); };
@@ -748,29 +856,40 @@ function renderPersonEdit(el, item) {
   const p = item.props;
   el.innerHTML = `
     <div style="margin-bottom:4px"><b>#${item.id} 사람</b> <span class="badge person">사람</span></div>
-    <div class="row"><div><label>X</label><input type="number" id="pX" step="0.05" value="${item.mesh.position.x.toFixed(2)}"></div>
-    <div><label>Z</label><input type="number" id="pZ" step="0.05" value="${item.mesh.position.z.toFixed(2)}"></div></div>
-    <label>회전°</label><input type="number" id="pRot" step="15" value="${(item.rotY * 180 / Math.PI).toFixed(0)}">
-    <label>옷 색상</label><input type="color" id="pC" value="${i2h(p.color)}">
-    ${paletteHTML('pC')}
-    <div class="chk"><input type="checkbox" id="pLbl" ${p.showLabel ? 'checked' : ''}> 라벨</div>
+    <div class="row"><div><label>X</label><input type="number" id="pX" step="0.05" value="${item.mesh.position.x.toFixed(2)}"></div><div><label>Z</label><input type="number" id="pZ" step="0.05" value="${item.mesh.position.z.toFixed(2)}"></div></div>
+    <label>회전°</label><input type="number" id="pRot" step="15" value="${(item.rotY*180/Math.PI).toFixed(0)}">
+    <label>옷 색상</label><input type="color" id="pC" value="${i2h(p.color)}">${paletteHTML('pC')}
+    <div class="chk"><input type="checkbox" id="pLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <button class="danger" id="delBtn">삭제</button>`;
-  const apply = () => {
-    item.mesh.position.x = parseFloat(el.querySelector('#pX').value);
-    item.mesh.position.z = parseFloat(el.querySelector('#pZ').value);
-    item.rotY = parseFloat(el.querySelector('#pRot').value) * Math.PI / 180;
-    item.mesh.rotation.y = item.rotY;
-    p.color = c2i(el.querySelector('#pC').value);
-    p.showLabel = el.querySelector('#pLbl').checked;
-    item.torso.material.color.setHex(p.color);
-    item.label.visible = p.showLabel;
-    autoSave();
-  };
+  const apply = () => { item.mesh.position.x=parseFloat(el.querySelector('#pX').value); item.mesh.position.z=parseFloat(el.querySelector('#pZ').value); item.rotY=parseFloat(el.querySelector('#pRot').value)*Math.PI/180; item.mesh.rotation.y=item.rotY; p.color=c2i(el.querySelector('#pC').value); p.showLabel=el.querySelector('#pLbl').checked; item.torso.material.color.setHex(p.color); item.label.visible=p.showLabel; autoSave(); };
   ['pX','pZ','pRot','pC','pLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
 }
 
-// ─── 사이드바 버튼 ───
+function renderRobotEdit(el, item) {
+  const p = item.props;
+  el.innerHTML = `
+    <div style="margin-bottom:4px"><b>#${item.id} 로봇팔</b> <span class="badge robot">로봇</span></div>
+    <div class="row"><div><label>X</label><input type="number" id="rX" step="0.05" value="${item.mesh.position.x.toFixed(2)}"></div><div><label>Z</label><input type="number" id="rZ" step="0.05" value="${item.mesh.position.z.toFixed(2)}"></div></div>
+    <label>회전°</label><input type="number" id="rRot" step="15" value="${(item.rotY*180/Math.PI).toFixed(0)}">
+    <label>리치 반경 (m)</label><input type="number" id="rReach" step="0.05" value="${p.reach}">
+    <label>색상</label><input type="color" id="rC" value="${i2h(p.color)}">${paletteHTML('rC')}
+    <div class="chk"><input type="checkbox" id="rLbl" ${p.showLabel?'checked':''}> 라벨</div>
+    <button class="danger" id="delBtn">삭제</button>`;
+  const apply = () => {
+    item.mesh.position.x = parseFloat(el.querySelector('#rX').value);
+    item.mesh.position.z = parseFloat(el.querySelector('#rZ').value);
+    item.rotY = parseFloat(el.querySelector('#rRot').value)*Math.PI/180; item.mesh.rotation.y = item.rotY;
+    p.reach = parseFloat(el.querySelector('#rReach').value);
+    p.color = c2i(el.querySelector('#rC').value);
+    p.showLabel = el.querySelector('#rLbl').checked;
+    updateRobotVisual(item); autoSave();
+  };
+  ['rX','rZ','rRot','rReach','rC','rLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
+  el.querySelector('#delBtn').onclick = () => removeItem(item.id);
+}
+
+// ─── 사이드바 이벤트 ───
 document.getElementById('addCustom').onclick = () => {
   const name = document.getElementById('customName').value.trim() || '커스텀';
   const w = parseFloat(document.getElementById('customW').value);
@@ -783,180 +902,144 @@ document.getElementById('addCustom').onclick = () => {
 document.getElementById('addDoor').onclick = () => addDoor();
 document.getElementById('addBarrier').onclick = () => addBarrier();
 document.getElementById('addPerson').onclick = () => addPerson();
+document.getElementById('addRobot').onclick = () => addRobotArm();
 
 document.getElementById('applyRoom').onclick = () => {
-  room.w = parseFloat(document.getElementById('roomW').value);
-  room.d = parseFloat(document.getElementById('roomD').value);
-  room.h = parseFloat(document.getElementById('roomH').value);
-  room.floorColor = c2i(document.getElementById('floorColor').value);
-  room.wallColor = c2i(document.getElementById('wallColor').value);
-  buildRoom();
-  placed.filter(p => p.type === 'door').forEach(updateDoorPlacement);
-  orbitCtrl.target.set(room.w / 2, 0, room.d / 2);
-  autoSave();
+  const sp = activeSpace();
+  sp.w = parseFloat(document.getElementById('roomW').value); sp.d = parseFloat(document.getElementById('roomD').value); sp.h = parseFloat(document.getElementById('roomH').value);
+  sp.floorColor = c2i(document.getElementById('floorColor').value); sp.wallColor = c2i(document.getElementById('wallColor').value);
+  sp.name = document.getElementById('spaceName').value;
+  buildAllRooms(); placed.filter(p => p.type === 'door' && p.spaceId === sp.id).forEach(updateDoorPlace);
+  renderSpaceList(); autoSave();
 };
 
+document.getElementById('bgColor').oninput = e => { scene.background.setStyle(e.target.value); };
+document.getElementById('showDims').onchange = e => { showDims = e.target.checked; updateDims(); };
 document.getElementById('showAllLabels').onchange = e => {
   const v = e.target.checked;
   placed.forEach(p => { if (p.label) { p.label.visible = v; if (p.props) p.props.showLabel = v; } });
   refreshEditPanel();
 };
 
+// 인접 공간 추가
+document.querySelectorAll('[data-dir]').forEach(btn => {
+  btn.onclick = () => {
+    const dir = btn.dataset.dir; const sp = activeSpace();
+    let nx = sp.x, nz = sp.z, nw = 4, nd = 4;
+    if (dir === 'north') { nz = sp.z + sp.d; nw = sp.w; }
+    else if (dir === 'south') { nz = sp.z - nd; nw = sp.w; }
+    else if (dir === 'east') { nx = sp.x + sp.w; nd = sp.d; }
+    else if (dir === 'west') { nx = sp.x - nw; nd = sp.d; }
+    const newSp = { id: nextSpaceId++, name: `공간 ${nextSpaceId - 1}`, x: nx, z: nz, w: nw, d: nd, h: sp.h, floorColor: sp.floorColor, wallColor: sp.wallColor };
+    spaces.push(newSp); activeSpaceId = newSp.id;
+    buildAllRooms(); syncSpaceUI(); renderSpaceList(); refreshPlacedList(); autoSave();
+  };
+});
+
 // ─── 줄자 ───
-let rulerMode = false;
-let rulerStart = null, rulerEnd = null;
-let rulerObjs = [];
-
-function clearRuler() {
-  rulerObjs.forEach(o => scene.remove(o));
-  rulerObjs = [];
-  rulerStart = rulerEnd = null;
-}
+let rulerMode = false, rulerStart = null, rulerEnd = null, rulerObjs = [];
+function clearRuler() { rulerObjs.forEach(o => scene.remove(o)); rulerObjs = []; rulerStart = rulerEnd = null; }
 function drawRuler() {
-  rulerObjs.forEach(o => scene.remove(o));
-  rulerObjs = [];
-  if (rulerStart) {
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
-    dot.position.copy(rulerStart);
-    scene.add(dot); rulerObjs.push(dot);
-  }
+  rulerObjs.forEach(o => scene.remove(o)); rulerObjs = [];
+  if (rulerStart) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2222 })); d.position.copy(rulerStart); scene.add(d); rulerObjs.push(d); }
   if (rulerStart && rulerEnd) {
-    const dot2 = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2222 }));
-    dot2.position.copy(rulerEnd);
-    scene.add(dot2); rulerObjs.push(dot2);
-    // 대시선 (점선은 어렵지만 실선으로)
-    const line = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([rulerStart, rulerEnd]),
-      new THREE.LineBasicMaterial({ color: 0xff4444 })
-    );
-    scene.add(line); rulerObjs.push(line);
-    // 수직 보조선 (높이 차이)
-    const dx = rulerEnd.x - rulerStart.x;
-    const dz = rulerEnd.z - rulerStart.z;
-    const horizDist = Math.sqrt(dx * dx + dz * dz);
-    const dist3d = rulerStart.distanceTo(rulerEnd);
-    const mid = rulerStart.clone().add(rulerEnd).multiplyScalar(0.5);
-    mid.y += 0.3;
-    const lbl = makeLabelSprite(`${horizDist.toFixed(2)}m` + (Math.abs(rulerStart.y - rulerEnd.y) > 0.01 ? ` (3D: ${dist3d.toFixed(2)}m)` : ''));
-    lbl.position.copy(mid);
-    scene.add(lbl); rulerObjs.push(lbl);
+    const d2 = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2222 })); d2.position.copy(rulerEnd); scene.add(d2); rulerObjs.push(d2);
+    const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([rulerStart, rulerEnd]), new THREE.LineBasicMaterial({ color: 0xff4444 })); scene.add(ln); rulerObjs.push(ln);
+    const dx = rulerEnd.x - rulerStart.x, dz = rulerEnd.z - rulerStart.z;
+    const hd = Math.sqrt(dx*dx+dz*dz);
+    const mid = rulerStart.clone().add(rulerEnd).multiplyScalar(0.5); mid.y += 0.3;
+    const lbl = makeLabelSprite(`${hd.toFixed(2)}m`); lbl.position.copy(mid); scene.add(lbl); rulerObjs.push(lbl);
   }
 }
-
-document.getElementById('rulerBtn').onclick = () => {
-  rulerMode = !rulerMode;
-  document.getElementById('rulerBtn').classList.toggle('active', rulerMode);
-  if (!rulerMode) { clearRuler(); }
-  renderer.domElement.style.cursor = rulerMode ? 'crosshair' : '';
-};
-document.getElementById('rulerClear').onclick = () => { clearRuler(); };
+document.getElementById('rulerBtn').onclick = () => { rulerMode = !rulerMode; document.getElementById('rulerBtn').classList.toggle('active', rulerMode); if (!rulerMode) clearRuler(); renderer.domElement.style.cursor = rulerMode ? 'crosshair' : ''; };
+document.getElementById('rulerClear').onclick = () => clearRuler();
 
 // ─── 저장/불러오기 ───
-const SAVE_VERSION = 1;
-
+const SAVE_VERSION = 2;
 function migrateData(data) {
-  // 버전이 없는 초기 데이터 → v1 형식으로 마이그레이션
   if (!data.version) data.version = 1;
-  // 향후 v2 마이그레이션: if (data.version === 1) { ... data.version = 2; }
+  if (data.version === 1) {
+    data.spaces = [{ id: 1, name: '실험실 1', x: 0, z: 0, ...(data.room || { w: 8, d: 6, h: 3, floorColor: 0xc8a878, wallColor: 0xaac4e0 }) }];
+    (data.placed || []).forEach(p => p.spaceId = 1);
+    data.version = 2;
+  }
   return data;
 }
 
 function serializeState() {
   return JSON.stringify({
-    version: SAVE_VERSION,
-    room,
+    version: SAVE_VERSION, spaces, activeSpaceId, nextSpaceId, bgColor: '#' + scene.background.getHexString(),
     placed: placed.map(item => {
-      const base = { type: item.type, name: item.name, id: item.id };
-      if (item.type === 'equipment') {
-        return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, y: item.mesh.position.y, rotY: item.rotY, props: item.props, specName: item.spec.name, specCategory: item.spec.category, specSurface: item.spec.surface };
-      } else if (item.type === 'door') {
-        return { ...base, props: item.props };
-      } else if (item.type === 'barrier') {
-        return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
-      } else if (item.type === 'person') {
-        return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
-      }
-    }),
-    nextId,
+      const base = { type: item.type, name: item.name, id: item.id, spaceId: item.spaceId };
+      if (item.type === 'equipment') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, y: item.mesh.position.y, rotY: item.rotY, props: item.props, specName: item.spec?.name, specCategory: item.spec?.category, specSurface: item.spec?.surface, textureDataURL: item.textureDataURL, silhouette: item.silhouette };
+      if (item.type === 'door') return { ...base, props: item.props };
+      if (item.type === 'barrier') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
+      if (item.type === 'person') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
+      if (item.type === 'robot') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
+    }), nextId,
   });
 }
 
 function loadState(json) {
   const data = migrateData(JSON.parse(json));
-  // clear
   [...placed].forEach(p => { scene.remove(p.mesh); if (p.arc) scene.remove(p.arc); });
-  placed.length = 0;
-  selectedId = null;
-  // room
-  Object.assign(room, data.room);
-  document.getElementById('roomW').value = room.w;
-  document.getElementById('roomD').value = room.d;
-  document.getElementById('roomH').value = room.h;
-  document.getElementById('floorColor').value = i2h(room.floorColor);
-  document.getElementById('wallColor').value = i2h(room.wallColor);
-  buildRoom();
-  orbitCtrl.target.set(room.w / 2, 0, room.d / 2);
-  // items
+  placed.length = 0; selectedId = null;
+  spaces = data.spaces || [{ id: 1, name: '실험실 1', x: 0, z: 0, w: 8, d: 6, h: 3, floorColor: 0xc8a878, wallColor: 0xaac4e0 }];
+  activeSpaceId = data.activeSpaceId || 1;
+  nextSpaceId = data.nextSpaceId || (Math.max(...spaces.map(s => s.id)) + 1);
+  if (data.bgColor) { scene.background.setStyle(data.bgColor); document.getElementById('bgColor').value = data.bgColor; }
+  buildAllRooms(); syncSpaceUI(); renderSpaceList();
   nextId = data.nextId || 1;
   (data.placed || []).forEach(d => {
+    const savedActiveId = activeSpaceId;
+    activeSpaceId = d.spaceId || 1;
     if (d.type === 'equipment') {
-      const libSpec = LIBRARY.find(s => s.name === d.specName) || { name: d.name, w: d.props.w, d: d.props.d, h: d.props.h, color: i2h(d.props.color), opacity: d.props.opacity, showLabel: d.props.showLabel, category: d.specCategory || 'floor', surface: d.specSurface || false };
+      const libSpec = LIBRARY.find(s => s.name === d.specName) || { name: d.name, w: d.props.w, d: d.props.d, h: d.props.h, color: i2h(d.props.color), opacity: d.props.opacity, showLabel: d.props.showLabel, category: d.specCategory || 'floor', surface: d.specSurface || false, textureDataURL: d.textureDataURL, silhouette: d.silhouette };
+      if (d.textureDataURL && !libSpec.textureDataURL) libSpec.textureDataURL = d.textureDataURL;
       const item = addEquipment(libSpec, d.x, d.z);
-      item.id = d.id; item.mesh.userData.id = d.id;
+      item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
       item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
       item.mesh.position.y = d.y || d.props.h / 2;
       Object.assign(item.props, d.props);
+      item.textureDataURL = d.textureDataURL || null;
+      item.silhouette = d.silhouette || null;
       updateEquipVisual(item);
     } else if (d.type === 'door') {
-      const item = addDoor();
-      item.id = d.id; item.mesh.userData.id = d.id;
-      Object.assign(item.props, d.props);
-      updateDoorPlacement(item);
+      const item = addDoor(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
+      Object.assign(item.props, d.props); updateDoorPlace(item);
     } else if (d.type === 'barrier') {
-      const item = addBarrier();
-      item.id = d.id; item.mesh.userData.id = d.id;
-      Object.assign(item.props, d.props);
-      item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
-      item.mesh.position.set(d.x, d.props.h / 2, d.z);
-      updateBarrierVisual(item);
+      const item = addBarrier(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
+      Object.assign(item.props, d.props); item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
+      item.mesh.position.set(d.x, d.props.h / 2, d.z); updateBarrierVis(item);
     } else if (d.type === 'person') {
-      const item = addPerson();
-      item.id = d.id; item.mesh.userData.id = d.id;
-      item.mesh.position.set(d.x, 0, d.z);
-      item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
-      Object.assign(item.props, d.props);
-      item.torso.material.color.setHex(d.props.color);
-      item.label.visible = d.props.showLabel;
+      const item = addPerson(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
+      item.mesh.position.set(d.x, 0, d.z); item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
+      Object.assign(item.props, d.props); item.torso.material.color.setHex(d.props.color); item.label.visible = d.props.showLabel;
+    } else if (d.type === 'robot') {
+      const item = addRobotArm(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
+      item.mesh.position.set(d.x, 0, d.z); item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
+      Object.assign(item.props, d.props); updateRobotVisual(item);
     }
+    activeSpaceId = savedActiveId;
   });
-  nextId = Math.max(nextId, ...placed.map(p => p.id + 1));
-  refreshPlacedList(); refreshEditPanel();
+  nextId = Math.max(nextId, ...placed.map(p => p.id + 1), 1);
+  activeSpaceId = data.activeSpaceId || 1;
+  syncSpaceUI(); renderSpaceList(); refreshPlacedList(); refreshEditPanel();
 }
 
 document.getElementById('saveBtn').onclick = () => {
   const blob = new Blob([serializeState()], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `lab_layout_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `lab_layout_v2_${new Date().toISOString().slice(0,10)}.json`; a.click();
 };
 document.getElementById('loadBtn').onclick = () => document.getElementById('loadFile').click();
 document.getElementById('loadFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = ev => { try { loadState(ev.target.result); } catch (err) { alert('파일 로드 실패: ' + err.message); } };
-  r.readAsText(f);
-  e.target.value = '';
+  const r = new FileReader(); r.onload = ev => { try { loadState(ev.target.result); } catch (err) { alert('로드 실패: ' + err.message); console.error(err); } };
+  r.readAsText(f); e.target.value = '';
 };
-
-function autoSave() {
-  try { localStorage.setItem('labLayout', serializeState()); } catch {}
-}
-// 자동 복원
-try {
-  const saved = localStorage.getItem('labLayout');
-  if (saved) loadState(saved);
-} catch {}
+function autoSave() { try { localStorage.setItem('labLayout', serializeState()); } catch {} }
+try { const s = localStorage.getItem('labLayout'); if (s) loadState(s); } catch {}
 
 // ─── 마우스 ───
 const raycaster = new THREE.Raycaster();
@@ -964,130 +1047,124 @@ const pointer = new THREE.Vector2();
 let dragging = false, dragOffset = new THREE.Vector3();
 const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-function getPointer(e) {
-  const r = renderer.domElement.getBoundingClientRect();
-  pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-  pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-}
-function pickable() {
-  return placed.map(p => p.type === 'person' ? p.pickBox : p.mesh);
-}
+function getPointer(e) { const r = renderer.domElement.getBoundingClientRect(); pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1; pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1; }
+function pickable() { return placed.map(p => (p.type === 'person' || p.type === 'robot') ? p.pickBox : p.mesh); }
 
 renderer.domElement.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
-  getPointer(e);
-  raycaster.setFromCamera(pointer, camera);
-
+  getPointer(e); raycaster.setFromCamera(pointer, camera);
   if (rulerMode) {
-    const pt = new THREE.Vector3();
-    // raycast against floor + surfaces
     const surfs = placed.filter(p => p.type === 'equipment' && p.spec?.surface).map(p => p.mesh);
-    surfs.push(floorMesh);
+    surfs.push(...floorMeshes);
     const hits = raycaster.intersectObjects(surfs, false);
-    if (hits.length > 0) {
-      const hp = hits[0].point.clone();
-      hp.y += 0.02;
-      if (!rulerStart || (rulerStart && rulerEnd)) {
-        rulerStart = hp; rulerEnd = null;
-      } else {
-        rulerEnd = hp;
-      }
-      drawRuler();
-    }
+    if (hits.length > 0) { const hp = hits[0].point.clone(); hp.y += 0.02; if (!rulerStart || (rulerStart && rulerEnd)) { rulerStart = hp; rulerEnd = null; } else { rulerEnd = hp; } drawRuler(); }
     return;
   }
-
   const hits = raycaster.intersectObjects(pickable(), false);
   if (hits.length > 0) {
-    const id = hits[0].object.userData.id;
-    selectItem(id);
+    const id = hits[0].object.userData.id; selectItem(id);
     const item = placed.find(p => p.id === id);
-    const point = new THREE.Vector3();
-    raycaster.ray.intersectPlane(dragPlane, point);
-    if (item.type === 'equipment' || item.type === 'barrier') {
-      dragOffset.copy(point).sub(new THREE.Vector3(item.mesh.position.x, 0, item.mesh.position.z));
-    } else if (item.type === 'person') {
-      dragOffset.copy(point).sub(new THREE.Vector3(item.mesh.position.x, 0, item.mesh.position.z));
-    } else {
-      dragOffset.set(0, 0, 0);
-    }
-    dragging = true;
-    orbitCtrl.enabled = false;
+    // 공간 자동 전환
+    if (item.spaceId !== activeSpaceId) { activeSpaceId = item.spaceId; syncSpaceUI(); renderSpaceList(); refreshPlacedList(); }
+    const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
+    const target = (item.type === 'person' || item.type === 'robot') ? item.mesh : item.mesh;
+    dragOffset.copy(pt).sub(new THREE.Vector3(target.position.x, 0, target.position.z));
+    dragging = true; orbit.enabled = false;
   }
 });
 
 renderer.domElement.addEventListener('pointermove', e => {
   if (!dragging || selectedId === null) return;
-  getPointer(e);
-  raycaster.setFromCamera(pointer, camera);
-  const item = placed.find(p => p.id === selectedId);
-  if (!item) return;
-
-  if (item.type === 'door') {
-    const pt = new THREE.Vector3();
-    raycaster.ray.intersectPlane(dragPlane, pt);
-    snapDoorToWall(item, pt.x, pt.z);
-    refreshEditPanel(); return;
-  }
-
-  // 테이블탑 스냅
+  getPointer(e); raycaster.setFromCamera(pointer, camera);
+  const item = placed.find(p => p.id === selectedId); if (!item) return;
+  if (item.type === 'door') { const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt); snapDoor(item, pt.x, pt.z); refreshEditPanel(); return; }
   let placedY = null;
   if (item.type === 'equipment' && item.spec?.category === 'tabletop') {
     const surfs = placed.filter(p => p.id !== item.id && p.type === 'equipment' && p.spec?.surface).map(p => p.mesh);
-    surfs.push(floorMesh);
+    surfs.push(...floorMeshes);
     const hits = raycaster.intersectObjects(surfs, false);
     if (hits.length > 0 && hits[0].face) {
       const n = hits[0].face.normal.clone().transformDirection(hits[0].object.matrixWorld);
-      if (n.y > 0.5) {
-        item.mesh.position.x = hits[0].point.x;
-        item.mesh.position.z = hits[0].point.z;
-        placedY = hits[0].point.y + item.props.h / 2;
-      }
+      if (n.y > 0.5) { item.mesh.position.x = hits[0].point.x; item.mesh.position.z = hits[0].point.z; placedY = hits[0].point.y + item.props.h / 2; }
     }
   }
   if (placedY === null) {
-    const pt = new THREE.Vector3();
-    raycaster.ray.intersectPlane(dragPlane, pt);
-    const target = item.type === 'equipment' || item.type === 'barrier' ? item.mesh : item.mesh;
-    let nx = pt.x - dragOffset.x, nz = pt.z - dragOffset.z;
-    nx = Math.max(0.1, Math.min(room.w - 0.1, nx));
-    nz = Math.max(0.1, Math.min(room.d - 0.1, nz));
-    target.position.x = nx; target.position.z = nz;
-    placedY = item.type === 'person' ? 0 : (item.props?.h || 1) / 2;
+    const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
+    const target = item.mesh;
+    target.position.x = pt.x - dragOffset.x; target.position.z = pt.z - dragOffset.z;
+    placedY = item.type === 'person' || item.type === 'robot' ? 0 : (item.props?.h || 1) / 2;
   }
-  (item.type === 'person' ? item.mesh : item.mesh).position.y = placedY;
+  item.mesh.position.y = placedY;
   refreshEditPanel();
 });
 
-window.addEventListener('pointerup', () => {
-  if (dragging) { dragging = false; orbitCtrl.enabled = true; autoSave(); }
-});
+window.addEventListener('pointerup', () => { if (dragging) { dragging = false; orbit.enabled = true; autoSave(); } });
 
 // ─── 키보드 ───
 window.addEventListener('keydown', e => {
   const tag = e.target?.tagName || '';
   const inForm = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-  if (e.key === 'Enter') {
-    if (inForm) e.target.blur();
-    if (selectedId !== null) selectItem(null);
-    return;
-  }
+  if (e.key === 'Enter') { if (inForm) e.target.blur(); if (selectedId !== null) selectItem(null); return; }
   if (e.key === 'Escape') { if (rulerMode) { rulerMode = false; document.getElementById('rulerBtn').classList.remove('active'); clearRuler(); renderer.domElement.style.cursor = ''; } if (selectedId !== null) selectItem(null); return; }
   if (inForm) return;
-  const item = placed.find(p => p.id === selectedId);
-  if (!item) return;
-  if (e.key === 'r' || e.key === 'R') {
-    if (item.type === 'door') return;
-    item.rotY += Math.PI / 2;
-    item.mesh.rotation.y = item.rotY;
-    refreshEditPanel(); autoSave();
-  } else if (e.key === 'Delete' || e.key === 'Backspace') {
-    removeItem(item.id);
-  }
+  const item = placed.find(p => p.id === selectedId); if (!item) return;
+  if (e.key === 'r' || e.key === 'R') { if (item.type === 'door') return; item.rotY += Math.PI / 2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); autoSave(); }
+  else if (e.key === 'Delete' || e.key === 'Backspace') removeItem(item.id);
 });
 
-// ─── 렌더 루프 ───
-(function animate() { requestAnimationFrame(animate); orbitCtrl.update(); renderer.render(scene, camera); })();
+// ─── 카메라 뷰 프리셋 ───
+document.querySelectorAll('[data-view]').forEach(btn => {
+  btn.onclick = () => {
+    const sp = activeSpace();
+    const cx = sp.x + sp.w / 2, cz = sp.z + sp.d / 2, ch = sp.h / 2;
+    const dist = Math.max(sp.w, sp.d) * 1.5;
+    orbit.target.set(cx, ch, cz);
+    switch (btn.dataset.view) {
+      case 'iso': camera.position.set(cx + dist, dist, cz + dist); break;
+      case 'top': camera.position.set(cx, dist * 2, cz + 0.01); break;
+      case 'front': camera.position.set(cx, ch, cz - dist); break;
+      case 'side': camera.position.set(cx + dist, ch, cz); break;
+    }
+    orbit.update();
+  };
+});
+
+// ─── 충돌 감지 ───
+const collisionGroup = new THREE.Group(); scene.add(collisionGroup);
+function updateCollisions() {
+  collisionGroup.traverse(ch => { if (ch.isMesh) { ch.geometry.dispose(); ch.material.dispose(); } });
+  collisionGroup.clear();
+  const items = placed.filter(p => ['equipment', 'barrier', 'robot'].includes(p.type));
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const a = new THREE.Box3().setFromObject(items[i].mesh);
+      const b = new THREE.Box3().setFromObject(items[j].mesh);
+      if (a.intersectsBox(b)) {
+        const inter = a.clone().intersect(b);
+        const sz = new THREE.Vector3(); inter.getSize(sz);
+        const ct = new THREE.Vector3(); inter.getCenter(ct);
+        if (sz.x > 0.01 && sz.y > 0.01 && sz.z > 0.01) {
+          const mk = new THREE.Mesh(
+            new THREE.BoxGeometry(sz.x, sz.y, sz.z),
+            new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthTest: false })
+          );
+          mk.position.copy(ct);
+          collisionGroup.add(mk);
+        }
+      }
+    }
+  }
+}
+
+// ─── 렌더 ───
+let collisionTimer = 0;
+(function animate() {
+  requestAnimationFrame(animate);
+  orbit.update();
+  // 충돌 체크 (매 30프레임마다)
+  if (++collisionTimer >= 30) { collisionTimer = 0; updateCollisions(); }
+  renderer.render(scene, camera);
+})();
 </script>
 </body>
 </html>
