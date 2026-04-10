@@ -160,6 +160,11 @@
     <div id="editPanel"><small style="color:#666">객체를 선택하세요</small></div>
   </div>
   <div id="viewport">
+    <div id="credit" style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; font-size:9px; color:#888; pointer-events:none; line-height:1.5; text-align:right;">
+      Lab Equipment Placement Simulator v2<br>
+      제작: chihunlee@kims.re.kr<br>
+      수정일: 2026-04-10
+    </div>
     <div id="hint">
       좌클릭: 회전 · 우클릭: 팬 · 휠: 줌 · 클릭: 선택 · 드래그: 이동<br>
       Enter: 배치완료 · R: 90°회전 · Del: 삭제 · 📏 줄자: 두 점 클릭
@@ -217,6 +222,22 @@ const LIBRARY = [
   { name: '연마기',                w: 0.5, d: 0.5, h: 0.4, color: '#666677', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
   { name: '저울',                  w: 0.3, d: 0.35, h: 0.15, color: '#cccccc', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
   { name: '의자',                  w: 0.5, d: 0.5, h: 0.9, color: '#444466', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  // ─── v2 추가 장비 ───
+  { name: '가스보관함',            w: 0.9, d: 0.5, h: 1.8, color: '#cc9933', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '데시케이터',            w: 0.5, d: 0.5, h: 0.6, color: '#aabbcc', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '시편보관함',            w: 0.6, d: 0.5, h: 0.5, color: '#7a8a6e', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '미니 압연기',           w: 0.8, d: 0.6, h: 1.2, color: '#556677', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '레이저 커팅기',         w: 1.5, d: 1.0, h: 1.4, color: '#336699', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '3D 스캐너 박스',        w: 0.6, d: 0.6, h: 0.6, color: '#4477aa', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '레이저 각인기',         w: 0.7, d: 0.5, h: 0.5, color: '#335588', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '경화기 (UV/열)',        w: 0.4, d: 0.4, h: 0.45, color: '#996633', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '워셔 (초음파/세척)',    w: 0.5, d: 0.4, h: 0.4, color: '#778899', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '공구보관함',            w: 0.9, d: 0.5, h: 1.8, color: '#994444', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '경도기',                w: 0.4, d: 0.4, h: 0.6, color: '#555566', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '모니터',                w: 0.55, d: 0.2, h: 0.4, color: '#222233', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '키보드 + 마우스',       w: 0.5, d: 0.25, h: 0.04, color: '#333333', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '사무용 의자',           w: 0.55, d: 0.55, h: 1.1, color: '#333355', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '안전용품 보관함',       w: 0.8, d: 0.5, h: 1.8, color: '#cc4444', opacity: 1, showLabel: true, category: 'floor', surface: false },
 ];
 
 // ─── Three.js 셋업 ───
@@ -517,6 +538,72 @@ const PRIMITIVES = {
     g.add(pm(new THREE.BoxGeometry(w*0.45, 0.02, d*0.5), new THREE.MeshStandardMaterial({ color: 0x333333 }), 0, 0.01, d*0.2));
     return g;
   },
+  '모니터': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.85, 0.03), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: 0x223355, emissiveIntensity: 0.4 }), 0, h*0.5, 0));
+    g.add(pm(new THREE.BoxGeometry(w*1.02, h*0.88, 0.015), new THREE.MeshStandardMaterial({ color: 0x222222 }), 0, h*0.5, -0.01));
+    g.add(pm(new THREE.BoxGeometry(w*0.15, 0.02, d*0.6), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, 0.01, 0));
+    g.add(pm(new THREE.CylinderGeometry(0.02, 0.02, h*0.12, 6), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, h*0.06, 0));
+    return g;
+  },
+  '보관함': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color }), 0, h/2, 0));
+    // 도어 + 손잡이 + 경고 표시
+    g.add(pm(new THREE.BoxGeometry(w*0.88, h*0.9, 0.015), new THREE.MeshStandardMaterial({ color: c2i(color) === 0xcc4444 ? 0xaa3333 : 0x777766 }), 0, h*0.5, d*0.51));
+    g.add(pm(new THREE.BoxGeometry(0.03, 0.1, 0.02), new THREE.MeshStandardMaterial({ color: 0xcccccc }), w*0.35, h*0.55, d*0.53));
+    // 통풍구 (가스보관함)
+    for (let i = 0; i < 3; i++) g.add(pm(new THREE.BoxGeometry(w*0.5, 0.008, 0.008), new THREE.MeshStandardMaterial({ color: 0x555555 }), 0, h*0.88 + i*0.03, d*0.51));
+    return g;
+  },
+  '레이저장비': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.6, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.3, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.85, h*0.35, d*0.85), new THREE.MeshStandardMaterial({ color: 0x556677, transparent: true, opacity: 0.4 }), 0, h*0.78, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.75, h*0.25, 0.02), new THREE.MeshStandardMaterial({ color: 0xaaccee, transparent: true, opacity: 0.2 }), 0, h*0.72, d*0.43));
+    g.add(pm(new THREE.CylinderGeometry(0.03, 0.03, h*0.2, 8), new THREE.MeshStandardMaterial({ color: 0xcc3333 }), 0, h*0.85, -d*0.2));
+    return g;
+  },
+  '스캐너': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.85, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.425, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.7, h*0.6, 0.02), new THREE.MeshStandardMaterial({ color: 0x222233 }), 0, h*0.45, d*0.51));
+    g.add(pm(new THREE.SphereGeometry(w*0.05, 8, 8), new THREE.MeshStandardMaterial({ color: 0x44aa44, emissive: 0x44aa44, emissiveIntensity: 0.5 }), w*0.25, h*0.85, d*0.3));
+    return g;
+  },
+  '압연기': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.3, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.15, 0));
+    // 롤러 2개
+    g.add(pm(new THREE.CylinderGeometry(h*0.12, h*0.12, w*0.7, 12), new THREE.MeshStandardMaterial({ color: 0x888888 }), 0, h*0.52, 0, 0, 0, Math.PI/2));
+    g.add(pm(new THREE.CylinderGeometry(h*0.12, h*0.12, w*0.7, 12), new THREE.MeshStandardMaterial({ color: 0x888888 }), 0, h*0.72, 0, 0, 0, Math.PI/2));
+    // 프레임
+    [-1, 1].forEach(sx => g.add(pm(new THREE.BoxGeometry(w*0.06, h*0.7, d*0.06), new THREE.MeshStandardMaterial({ color: 0x555555 }), sx*w*0.38, h*0.65, 0)));
+    return g;
+  },
+  '의자': (w, d, h, color) => {
+    const g = new THREE.Group();
+    // 좌석
+    g.add(pm(new THREE.CylinderGeometry(w*0.4, w*0.4, 0.06, 12), new THREE.MeshStandardMaterial({ color }), 0, h*0.45, 0));
+    // 등받이
+    g.add(pm(new THREE.BoxGeometry(w*0.7, h*0.35, 0.04), new THREE.MeshStandardMaterial({ color }), 0, h*0.7, -d*0.35));
+    // 다리 (별 모양 베이스)
+    g.add(pm(new THREE.CylinderGeometry(0.03, 0.03, h*0.4, 6), new THREE.MeshStandardMaterial({ color: 0x555555 }), 0, h*0.22, 0));
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      g.add(pm(new THREE.BoxGeometry(0.03, 0.03, w*0.35), new THREE.MeshStandardMaterial({ color: 0x555555 }), Math.sin(a)*w*0.15, 0.03, Math.cos(a)*w*0.15, 0, a));
+      g.add(pm(new THREE.SphereGeometry(0.025, 6, 6), new THREE.MeshStandardMaterial({ color: 0x333333 }), Math.sin(a)*w*0.32, 0.025, Math.cos(a)*w*0.32));
+    }
+    return g;
+  },
+  '경도기': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w*0.8, h*0.15, d*0.8), new THREE.MeshStandardMaterial({ color }), 0, h*0.075, 0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.08, w*0.1, h*0.55, 8), new THREE.MeshStandardMaterial({ color: 0x555555 }), -w*0.1, h*0.43, 0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.03, w*0.03, h*0.2, 8), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, h*0.35, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.3, h*0.25, 0.03), new THREE.MeshStandardMaterial({ color: 0x222233, emissive: 0x112244, emissiveIntensity: 0.3 }), w*0.15, h*0.55, d*0.2));
+    return g;
+  },
 };
 
 function matchPrimitive(name) {
@@ -532,7 +619,14 @@ function matchPrimitive(name) {
   if (/인장/i.test(name)) return '인장시험기';
   if (/XRD/i.test(name)) return 'XRD';
   if (/EDM|와이어.*가공/i.test(name)) return 'EDM';
-  if (/PC|모니터|데스크탑/i.test(name)) return 'PC';
+  if (/PC|데스크탑/i.test(name)) return 'PC';
+  if (/모니터/i.test(name) && !/PC/i.test(name)) return '모니터';
+  if (/가스.*보관|안전.*보관|공구.*보관|시편.*보관/i.test(name)) return '보관함';
+  if (/레이저.*커팅|레이저.*각인/i.test(name)) return '레이저장비';
+  if (/스캐너/i.test(name)) return '스캐너';
+  if (/압연/i.test(name)) return '압연기';
+  if (/의자/i.test(name)) return '의자';
+  if (/경도/i.test(name)) return '경도기';
   return null;
 }
 
