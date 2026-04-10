@@ -403,80 +403,118 @@ function updateDims() {
 buildAllRooms();
 
 // ─── 프리미티브 빌더 (장비별 3D 형태) ───
+// 헬퍼: mesh 생성 후 position 설정
+function pm(geo, mat, x, y, z, rx, ry, rz) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x || 0, y || 0, z || 0);
+  if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
+  return m;
+}
+
 const PRIMITIVES = {
   'SEM': (w, d, h, color) => {
     const g = new THREE.Group();
-    // 본체
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w*0.9, h*0.6, d*0.9), new THREE.MeshStandardMaterial({ color })), { position: new THREE.Vector3(0, h*0.3, 0) }));
-    // 상부 (전자총부)
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(w*0.15, w*0.2, h*0.35, 12), new THREE.MeshStandardMaterial({ color: 0x444444 })), { position: new THREE.Vector3(0, h*0.78, -d*0.1) }));
-    // 모니터
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w*0.5, h*0.3, 0.05), new THREE.MeshStandardMaterial({ color: 0x222233, emissive: 0x112244, emissiveIntensity: 0.3 })), { position: new THREE.Vector3(w*0.05, h*0.75, d*0.45) }));
+    g.add(pm(new THREE.BoxGeometry(w*0.9, h*0.55, d*0.9), new THREE.MeshStandardMaterial({ color }), 0, h*0.275, 0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.15, w*0.2, h*0.35, 12), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, h*0.73, -d*0.1));
+    g.add(pm(new THREE.BoxGeometry(w*0.45, h*0.28, 0.04), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: 0x223355, emissiveIntensity: 0.5 }), w*0.05, h*0.7, d*0.45));
+    g.add(pm(new THREE.BoxGeometry(w*0.48, h*0.32, 0.02), new THREE.MeshStandardMaterial({ color: 0x333333 }), w*0.05, h*0.7, d*0.44));
     return g;
   },
   '3D프린터': (w, d, h, color) => {
     const g = new THREE.Group();
-    // 하부 프레임
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w, h*0.35, d), new THREE.MeshStandardMaterial({ color })), { position: new THREE.Vector3(0, h*0.175, 0) }));
-    // 상부 챔버
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w*0.9, h*0.55, d*0.9), new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.7 })), { position: new THREE.Vector3(0, h*0.625, 0) }));
-    // 도어 (전면 유리)
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w*0.7, h*0.45, 0.02), new THREE.MeshStandardMaterial({ color: 0x88aacc, transparent: true, opacity: 0.3 })), { position: new THREE.Vector3(0, h*0.6, d*0.46) }));
+    g.add(pm(new THREE.BoxGeometry(w, h*0.35, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.175, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.92, h*0.55, d*0.92), new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.6 }), 0, h*0.625, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.7, h*0.42, 0.02), new THREE.MeshStandardMaterial({ color: 0x88aacc, transparent: true, opacity: 0.25 }), 0, h*0.58, d*0.47));
+    g.add(pm(new THREE.BoxGeometry(w*0.15, 0.02, 0.02), new THREE.MeshStandardMaterial({ color: 0xaaaaaa }), 0, h*0.42, d*0.48));
     return g;
   },
   '전기로': (w, d, h, color) => {
     const g = new THREE.Group();
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w, h*0.7, d), new THREE.MeshStandardMaterial({ color })), { position: new THREE.Vector3(0, h*0.35, 0) }));
-    // 상부 굴뚝/배기
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(w*0.08, w*0.1, h*0.3, 8), new THREE.MeshStandardMaterial({ color: 0x666666 })), { position: new THREE.Vector3(0, h*0.85, 0) }));
-    // 도어
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w*0.6, h*0.4, 0.03), new THREE.MeshStandardMaterial({ color: 0x555555 })), { position: new THREE.Vector3(0, h*0.35, d*0.51) }));
+    g.add(pm(new THREE.BoxGeometry(w, h*0.7, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.35, 0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.08, w*0.1, h*0.3, 8), new THREE.MeshStandardMaterial({ color: 0x666666 }), 0, h*0.85, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.6, h*0.4, 0.03), new THREE.MeshStandardMaterial({ color: 0x555555 }), 0, h*0.35, d*0.51));
+    g.add(pm(new THREE.BoxGeometry(0.06, 0.06, 0.03), new THREE.MeshStandardMaterial({ color: 0x999999 }), 0, h*0.5, d*0.53));
     return g;
   },
   '현미경': (w, d, h, color) => {
     const g = new THREE.Group();
-    // 베이스
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(w*0.35, w*0.4, h*0.08, 16), new THREE.MeshStandardMaterial({ color: 0x333333 })), { position: new THREE.Vector3(0, h*0.04, 0) }));
-    // 기둥
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(w*0.06, w*0.06, h*0.7, 8), new THREE.MeshStandardMaterial({ color })), { position: new THREE.Vector3(-w*0.15, h*0.43, 0) }));
-    // 아이피스
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(w*0.08, w*0.06, h*0.2, 8), new THREE.MeshStandardMaterial({ color: 0x222222 })), { position: new THREE.Vector3(0, h*0.85, 0), rotation: new THREE.Euler(0.4, 0, 0) }));
-    // 대물렌즈
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(w*0.05, w*0.04, h*0.1, 8), new THREE.MeshStandardMaterial({ color: 0x444444 })), { position: new THREE.Vector3(0, h*0.15, 0) }));
+    g.add(pm(new THREE.CylinderGeometry(w*0.38, w*0.42, h*0.06, 16), new THREE.MeshStandardMaterial({ color: 0x333333 }), 0, h*0.03, 0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.06, w*0.06, h*0.7, 8), new THREE.MeshStandardMaterial({ color }), -w*0.12, h*0.38, 0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.08, w*0.06, h*0.2, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }), 0, h*0.82, 0, 0.4));
+    g.add(pm(new THREE.CylinderGeometry(w*0.05, w*0.04, h*0.12, 8), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, h*0.12, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.6, h*0.02, d*0.35), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, h*0.2, 0));
     return g;
   },
   '후드': (w, d, h, color) => {
     const g = new THREE.Group();
-    // 본체 프레임
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w, h*0.4, d), new THREE.MeshStandardMaterial({ color })), { position: new THREE.Vector3(0, h*0.2, 0) }));
-    // 상부 후드
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w, h*0.55, d*0.95), new THREE.MeshStandardMaterial({ color: 0x999999, transparent: true, opacity: 0.4 })), { position: new THREE.Vector3(0, h*0.675, 0) }));
-    // 전면 유리
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w*0.95, h*0.4, 0.01), new THREE.MeshStandardMaterial({ color: 0xaaccee, transparent: true, opacity: 0.25 })), { position: new THREE.Vector3(0, h*0.6, d*0.47) }));
+    g.add(pm(new THREE.BoxGeometry(w, h*0.38, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.19, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.98, h*0.52, d*0.95), new THREE.MeshStandardMaterial({ color: 0x888888, transparent: true, opacity: 0.35 }), 0, h*0.64, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.92, h*0.4, 0.01), new THREE.MeshStandardMaterial({ color: 0xaaccee, transparent: true, opacity: 0.2 }), 0, h*0.58, d*0.48));
+    g.add(pm(new THREE.BoxGeometry(w*0.6, h*0.08, d*0.5), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, h*0.96, -d*0.1));
     return g;
   },
   '테이블': (w, d, h, color) => {
     const g = new THREE.Group();
-    // 상판
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w, h*0.06, d), new THREE.MeshStandardMaterial({ color })), { position: new THREE.Vector3(0, h*0.97, 0) }));
-    // 다리 4개
-    const lw = 0.05, lh = h*0.94;
+    g.add(pm(new THREE.BoxGeometry(w, h*0.05, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.975, 0));
+    const lw = 0.05, lh = h*0.95;
     [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sz]) => {
-      g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(lw, lh, lw), new THREE.MeshStandardMaterial({ color: 0x555555 })), { position: new THREE.Vector3(sx*(w/2-0.05), lh/2, sz*(d/2-0.05)) }));
+      g.add(pm(new THREE.BoxGeometry(lw, lh, lw), new THREE.MeshStandardMaterial({ color: 0x555555 }), sx*(w/2-0.05), lh/2, sz*(d/2-0.05)));
     });
     return g;
   },
   '캐비닛': (w, d, h, color) => {
     const g = new THREE.Group();
-    g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color })), { position: new THREE.Vector3(0, h/2, 0) }));
-    // 서랍 라인
-    for (let i = 1; i <= 3; i++) {
-      g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(w*0.85, 0.01, 0.01), new THREE.MeshStandardMaterial({ color: 0x333333 })), { position: new THREE.Vector3(0, h*i/4, d*0.51) }));
-    }
-    // 손잡이
-    for (let i = 0; i < 3; i++) {
-      g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.02, 0.02), new THREE.MeshStandardMaterial({ color: 0xaaaaaa })), { position: new THREE.Vector3(0, h*(i+0.5)/4+h*0.125, d*0.52) }));
-    }
+    g.add(pm(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color }), 0, h/2, 0));
+    for (let i = 1; i <= 3; i++) g.add(pm(new THREE.BoxGeometry(w*0.85, 0.015, 0.015), new THREE.MeshStandardMaterial({ color: 0x333333 }), 0, h*i/4, d*0.51));
+    for (let i = 0; i < 3; i++) g.add(pm(new THREE.BoxGeometry(0.08, 0.02, 0.025), new THREE.MeshStandardMaterial({ color: 0xbbbbbb }), 0, h*(2*i+1)/8, d*0.52));
+    return g;
+  },
+  '냉장고': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color }), 0, h/2, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.9, 0.015, 0.015), new THREE.MeshStandardMaterial({ color: 0x888888 }), 0, h*0.6, d*0.51));
+    g.add(pm(new THREE.BoxGeometry(0.03, 0.12, 0.025), new THREE.MeshStandardMaterial({ color: 0xaaaaaa }), w*0.35, h*0.75, d*0.52));
+    g.add(pm(new THREE.BoxGeometry(0.03, 0.12, 0.025), new THREE.MeshStandardMaterial({ color: 0xaaaaaa }), w*0.35, h*0.4, d*0.52));
+    return g;
+  },
+  '글로브박스': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.7 }), 0, h/2, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.85, h*0.55, 0.02), new THREE.MeshStandardMaterial({ color: 0xaaddff, transparent: true, opacity: 0.2 }), 0, h*0.55, d*0.51));
+    [-0.25, 0.25].forEach(xf => {
+      g.add(pm(new THREE.SphereGeometry(w*0.08, 12, 8, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0x333333 }), w*xf, h*0.4, d*0.52));
+      g.add(pm(new THREE.CylinderGeometry(0.04, 0.03, 0.15, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }), w*xf, h*0.32, d*0.55, Math.PI*0.3));
+    });
+    return g;
+  },
+  '인장시험기': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.15, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.075, 0));
+    [-1,1].forEach(sx => g.add(pm(new THREE.BoxGeometry(w*0.08, h*0.9, d*0.08), new THREE.MeshStandardMaterial({ color: 0x555555 }), sx*w*0.35, h*0.55, 0)));
+    g.add(pm(new THREE.BoxGeometry(w*0.78, h*0.08, d*0.6), new THREE.MeshStandardMaterial({ color: 0x666666 }), 0, h*0.5, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.78, h*0.06, d*0.5), new THREE.MeshStandardMaterial({ color }), 0, h*0.92, 0));
+    return g;
+  },
+  'XRD': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.5, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.25, 0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.2, w*0.2, h*0.4, 16), new THREE.MeshStandardMaterial({ color: 0x555555 }), 0, h*0.7, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.2, 0.02, d*0.3), new THREE.MeshStandardMaterial({ color: 0x888888 }), w*0.25, h*0.65, 0, 0, 0, -0.3));
+    return g;
+  },
+  'EDM': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.4, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.2, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.3, h*0.55, d*0.3), new THREE.MeshStandardMaterial({ color: 0x555555 }), -w*0.25, h*0.68, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.7, h*0.3, d*0.7), new THREE.MeshStandardMaterial({ color: 0x88aacc, transparent: true, opacity: 0.3 }), w*0.05, h*0.55, 0));
+    return g;
+  },
+  'PC': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w*0.6, h*0.75, 0.03), new THREE.MeshStandardMaterial({ color: 0x111122, emissive: 0x223355, emissiveIntensity: 0.4 }), 0, h*0.43, -d*0.1));
+    g.add(pm(new THREE.BoxGeometry(w*0.62, h*0.78, 0.02), new THREE.MeshStandardMaterial({ color: 0x333333 }), 0, h*0.43, -d*0.09));
+    g.add(pm(new THREE.BoxGeometry(w*0.25, 0.02, d*0.25), new THREE.MeshStandardMaterial({ color: 0x444444 }), 0, 0.01, -d*0.1));
+    g.add(pm(new THREE.BoxGeometry(w*0.45, 0.02, d*0.5), new THREE.MeshStandardMaterial({ color: 0x333333 }), 0, 0.01, d*0.2));
     return g;
   },
 };
@@ -489,6 +527,12 @@ function matchPrimitive(name) {
   if (/후드/i.test(name)) return '후드';
   if (/테이블|벤치|책상/i.test(name)) return '테이블';
   if (/캐비닛/i.test(name)) return '캐비닛';
+  if (/냉장고/i.test(name)) return '냉장고';
+  if (/글로브|드라이/i.test(name)) return '글로브박스';
+  if (/인장/i.test(name)) return '인장시험기';
+  if (/XRD/i.test(name)) return 'XRD';
+  if (/EDM|와이어.*가공/i.test(name)) return 'EDM';
+  if (/PC|모니터|데스크탑/i.test(name)) return 'PC';
   return null;
 }
 
@@ -547,10 +591,12 @@ function addEquipment(spec, x = null, z = null) {
       mesh.add(model);
     }).catch(() => {});
   } else if (primKey && PRIMITIVES[primKey] && !spec.textureDataURL) {
-    const primGroup = PRIMITIVES[primKey](p.w, p.d, p.h, p.color);
-    mesh = new THREE.Group();
-    primGroup.children.forEach(c => mesh.add(c.clone()));
-    // 중심점 보정: 프리미티브는 y=0 기준으로 빌드됨
+    mesh = PRIMITIVES[primKey](p.w, p.d, p.h, p.color);
+    // 피킹용 투명 박스
+    const pickBox = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), new THREE.MeshBasicMaterial({ visible: false }));
+    pickBox.position.y = p.h / 2;
+    pickBox.userData.id = id;
+    mesh.add(pickBox);
     usePrimitive = true;
   } else if (spec.textureDataURL) {
     const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
@@ -571,7 +617,9 @@ function addEquipment(spec, x = null, z = null) {
   mesh.position.set(x, usePrimitive ? 0 : p.h / 2, z);
   mesh.userData.id = id;
   scene.add(mesh);
-  const item = { id, type: 'equipment', name: spec.name, spaceId: sp.id, spec: { ...spec }, mesh, label, edges: null, rotY: 0, props: p, textureDataURL: spec.textureDataURL || null, glbDataURL: spec.glbDataURL || null, usePrimitive };
+  const edges = mesh.geometry ? new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x000000 })) : null;
+  if (edges) mesh.add(edges);
+  const item = { id, type: 'equipment', name: spec.name, spaceId: sp.id, spec: { ...spec }, mesh, label, edges, rotY: 0, props: p, textureDataURL: spec.textureDataURL || null, glbDataURL: spec.glbDataURL || null, usePrimitive };
   placed.push(item); refreshPlacedList(); selectItem(id); autoSave();
   return item;
 }
@@ -1193,7 +1241,16 @@ let dragging = false, dragOffset = new THREE.Vector3();
 const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
 function getPointer(e) { const r = renderer.domElement.getBoundingClientRect(); pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1; pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1; }
-function pickable() { return placed.map(p => (p.type === 'person' || p.type === 'robot') ? p.pickBox : p.mesh); }
+function pickable() {
+  return placed.map(p => {
+    if (p.type === 'person' || p.type === 'robot') return p.pickBox;
+    if (p.usePrimitive) {
+      const pb = p.mesh.children.find(c => c.userData.id === p.id);
+      return pb || p.mesh;
+    }
+    return p.mesh;
+  });
+}
 
 renderer.domElement.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
