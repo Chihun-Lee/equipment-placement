@@ -86,6 +86,56 @@
   }
   .log-entry:hover { background: rgba(255,255,255,0.08); color: #fff; }
   .log-entry.current { border-left-color: #4ec9b0; color: #4ec9b0; }
+
+  /* AI 장비 위자드 모달 */
+  #aiModal {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    justify-content: center; align-items: center;
+  }
+  #aiModal.show { display: flex; }
+  #aiModal .modal-box {
+    background: #2d2d30; border: 1px solid #555; border-radius: 10px;
+    width: 420px; max-height: 80vh; overflow-y: auto;
+    padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+  #aiModal .modal-title {
+    font-size: 15px; font-weight: 600; color: #4ec9b0; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #aiModal .modal-step { color: #888; font-size: 11px; }
+  #aiModal .q-group { margin: 10px 0; }
+  #aiModal .q-label { font-size: 12px; color: #ccc; margin-bottom: 6px; font-weight: 500; }
+  #aiModal .q-options { display: flex; flex-wrap: wrap; gap: 6px; }
+  #aiModal .q-opt {
+    padding: 6px 12px; background: #3a3a3d; border: 1px solid #555; border-radius: 6px;
+    font-size: 12px; color: #ddd; cursor: pointer; transition: all 0.15s;
+  }
+  #aiModal .q-opt:hover { border-color: #4ec9b0; color: #fff; }
+  #aiModal .q-opt.selected { background: #0e639c; border-color: #4ec9b0; color: #fff; }
+  #aiModal .q-input {
+    width: 100%; box-sizing: border-box; background: #1e1e1e; color: #eee;
+    border: 1px solid #555; padding: 6px 8px; border-radius: 5px; font-size: 12px;
+  }
+  #aiModal .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  #aiModal .modal-actions button {
+    padding: 7px 18px; border-radius: 5px; font-size: 12px; font-weight: 500;
+  }
+  #aiModal .btn-primary { background: #0e639c; }
+  #aiModal .btn-primary:hover { background: #1177bb; }
+  #aiModal .btn-cancel { background: #555; }
+  #aiModal .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid #555; border-top-color: #4ec9b0; border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #aiModal .preview-box {
+    background: #1e1e1e; border: 1px solid #444; border-radius: 6px;
+    padding: 10px; margin-top: 10px; font-size: 11px; color: #aaa;
+  }
+  #aiModal .preview-box .dim { color: #4ec9b0; font-weight: 600; }
+  #aiModal .preview-box .cat { color: #ffcc44; }
 </style>
 </head>
 <body>
@@ -108,6 +158,8 @@
     </div>
     <div class="chk"><input type="checkbox" id="showDims" checked> 공간 치수 표시</div>
     <div class="chk"><input type="checkbox" id="showAllLabels" checked> 모든 라벨 표시</div>
+    <div class="chk"><input type="checkbox" id="aiAutoGen" checked> AI 자동 3D 형상 생성</div>
+    <input type="hidden" id="apiKeyInput">
 
     <h2>공간 관리</h2>
     <div id="spaceList"></div>
@@ -153,13 +205,16 @@
     <div id="library"></div>
     <hr>
     <label>커스텀 장비</label>
-    <input type="text" id="customName" placeholder="장비명">
     <div class="row">
+      <input type="text" id="customName" placeholder="장비명" style="flex:2">
+      <button id="aiAddBtn" style="flex:1;background:#0e639c">🤖 AI 추가</button>
+    </div>
+    <div class="row" style="margin-top:3px">
       <input type="number" id="customW" placeholder="W" step="0.05" value="1">
       <input type="number" id="customD" placeholder="D" step="0.05" value="1">
       <input type="number" id="customH" placeholder="H" step="0.05" value="1">
     </div>
-    <button id="addCustom" class="ghost">+ 라이브러리 추가</button>
+    <button id="addCustom" class="ghost">+ 수동 추가 (박스)</button>
 
     <h2>특수 객체</h2>
     <div class="section-btns">
@@ -180,12 +235,21 @@
     <div id="credit" style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; font-size:9px; color:#888; pointer-events:none; line-height:1.5; text-align:right;">
       Lab Equipment Placement Simulator v2<br>
       제작: chihunlee@kims.re.kr<br>
-      수정일: 2026-04-10
+      수정일: 2026-04-12
     </div>
     <div id="hint">
       좌클릭: 회전 · 우클릭: 팬 · 휠: 줌 · 클릭: 선택 · 드래그: 이동<br>
       Enter: 배치완료 · R: 90°회전 · Del: 삭제 · 📏 줄자: 두 점 클릭
     </div>
+  </div>
+</div>
+
+<!-- AI 장비 추가 위자드 모달 -->
+<div id="aiModal">
+  <div class="modal-box">
+    <div class="modal-title">🤖 AI 장비 추가 <span class="modal-step" id="aiStep"></span></div>
+    <div id="aiModalBody"></div>
+    <div class="modal-actions" id="aiModalActions"></div>
   </div>
 </div>
 
@@ -255,6 +319,13 @@ const LIBRARY = [
   { name: '키보드 + 마우스',       w: 0.5, d: 0.25, h: 0.04, color: '#333333', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
   { name: '사무용 의자',           w: 0.55, d: 0.55, h: 1.1, color: '#333355', opacity: 1, showLabel: true, category: 'floor', surface: false },
   { name: '안전용품 보관함',       w: 0.8, d: 0.5, h: 1.8, color: '#cc4444', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  // ─── v2.1 추가 장비 ───
+  { name: '항온항습기',            w: 0.8, d: 0.7, h: 1.7, color: '#889999', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '공구작업대',            w: 1.5, d: 0.75, h: 0.9, color: '#7a6b5e', opacity: 1, showLabel: true, category: 'floor', surface: true },
+  { name: '에어컨 (스탠드)',       w: 0.4, d: 0.4, h: 1.8, color: '#dddddd', opacity: 1, showLabel: true, category: 'floor', surface: false },
+  { name: '파티션',                w: 1.2, d: 0.05, h: 1.5, color: '#aaaaaa', opacity: 0.8, showLabel: true, category: 'floor', surface: false },
+  { name: '프린터기',              w: 0.5, d: 0.45, h: 0.35, color: '#444444', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
+  { name: '미니수납장',            w: 0.4, d: 0.35, h: 0.6, color: '#8a7a6a', opacity: 1, showLabel: true, category: 'tabletop', surface: false },
 ];
 
 // ─── Three.js 셋업 ───
@@ -621,7 +692,384 @@ const PRIMITIVES = {
     g.add(pm(new THREE.BoxGeometry(w*0.3, h*0.25, 0.03), new THREE.MeshStandardMaterial({ color: 0x222233, emissive: 0x112244, emissiveIntensity: 0.3 }), w*0.15, h*0.55, d*0.2));
     return g;
   },
+  '항온항습기': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.92, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.46, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.6, h*0.12, 0.02), new THREE.MeshStandardMaterial({ color: 0x222233, emissive: 0x113355, emissiveIntensity: 0.4 }), 0, h*0.72, d*0.51));
+    g.add(pm(new THREE.CylinderGeometry(w*0.15, w*0.15, 0.03, 16), new THREE.MeshStandardMaterial({ color: 0x666666 }), 0, h*0.35, d*0.51));
+    g.add(pm(new THREE.BoxGeometry(w*0.08, 0.06, 0.03), new THREE.MeshStandardMaterial({ color: 0x888888 }), w*0.35, h*0.55, d*0.52));
+    return g;
+  },
+  '공구작업대': (w, d, h, color) => {
+    const g = new THREE.Group();
+    // 상판
+    g.add(pm(new THREE.BoxGeometry(w, h*0.06, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.97, 0));
+    // 다리 4개
+    const lw = 0.06, lh = h*0.94;
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sz]) => {
+      g.add(pm(new THREE.BoxGeometry(lw, lh, lw), new THREE.MeshStandardMaterial({ color: 0x555555 }), sx*(w/2-0.06), lh/2, sz*(d/2-0.06)));
+    });
+    // 하단 선반
+    g.add(pm(new THREE.BoxGeometry(w*0.9, 0.03, d*0.8), new THREE.MeshStandardMaterial({ color: 0x666655 }), 0, h*0.15, 0));
+    return g;
+  },
+  '에어컨': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.85, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.425, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.7, h*0.3, 0.02), new THREE.MeshStandardMaterial({ color: 0xbbbbbb }), 0, h*0.6, d*0.51));
+    g.add(pm(new THREE.BoxGeometry(w*0.5, h*0.08, 0.01), new THREE.MeshStandardMaterial({ color: 0x222233, emissive: 0x224488, emissiveIntensity: 0.3 }), 0, h*0.8, d*0.52));
+    g.add(pm(new THREE.CylinderGeometry(w*0.04, w*0.04, h*0.12, 8), new THREE.MeshStandardMaterial({ color: 0xaaaaaa }), 0, h*0.92, 0));
+    return g;
+  },
+  '파티션': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h, d*0.6), new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.8 }), 0, h*0.5, 0));
+    // 프레임
+    g.add(pm(new THREE.BoxGeometry(w, 0.03, d), new THREE.MeshStandardMaterial({ color: 0x666666 }), 0, h, 0));
+    g.add(pm(new THREE.BoxGeometry(w, 0.03, d), new THREE.MeshStandardMaterial({ color: 0x666666 }), 0, 0.015, 0));
+    [[-1],[1]].forEach(([sx]) => {
+      g.add(pm(new THREE.BoxGeometry(0.03, h, d), new THREE.MeshStandardMaterial({ color: 0x666666 }), sx*w/2, h*0.5, 0));
+    });
+    return g;
+  },
+  '프린터기': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h*0.65, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.325, 0));
+    g.add(pm(new THREE.BoxGeometry(w*0.85, h*0.1, d*0.6), new THREE.MeshStandardMaterial({ color: 0x333333 }), 0, h*0.72, -d*0.1));
+    g.add(pm(new THREE.BoxGeometry(w*0.3, h*0.15, 0.02), new THREE.MeshStandardMaterial({ color: 0x222233, emissive: 0x113344, emissiveIntensity: 0.3 }), w*0.2, h*0.5, d*0.51));
+    g.add(pm(new THREE.BoxGeometry(w*0.7, 0.01, d*0.3), new THREE.MeshStandardMaterial({ color: 0xeeeeee }), 0, h*0.67, d*0.25));
+    return g;
+  },
+  '수납장': (w, d, h, color) => {
+    const g = new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color }), 0, h*0.5, 0));
+    // 선반 3개
+    for (let i = 1; i <= 3; i++) {
+      g.add(pm(new THREE.BoxGeometry(w*0.92, 0.02, d*0.9), new THREE.MeshStandardMaterial({ color: 0x666655 }), 0, h*i*0.25, 0));
+    }
+    g.add(pm(new THREE.BoxGeometry(0.04, 0.04, 0.03), new THREE.MeshStandardMaterial({ color: 0x888888 }), 0, h*0.5, d*0.52));
+    return g;
+  },
 };
+
+// ─── AI 로그 메시지 ───
+function logMsg(msg) {
+  const el = document.getElementById('logPanel');
+  if (!el) return;
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.textContent = new Date().toLocaleTimeString().slice(0,5) + ' ' + msg;
+  div.style.color = msg.startsWith('❌') ? '#ff6b6b' : msg.startsWith('✅') ? '#6bff6b' : '#ffcc44';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  setTimeout(() => div.remove(), 8000);
+}
+
+// ─── AI 자동 3D 형상 생성 ───
+const AI_PRIM_CACHE = JSON.parse(localStorage.getItem('aiPrimCache') || '{}');
+
+// API 키 (내장)
+const _AK = ['sk-ant-api03-001JOQrIzsr4svj-XQl8Nl_XJD77CXuP','mw2bKT0grlODEpeTAcuCd7zA2G7cGa8muqv0FmFzQ09U5vkYpzPbFQ-r5tplQAA'];
+function getApiKey() { return _AK.join(''); }
+
+async function callClaude(messages, maxTokens = 1024) {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('API 키가 설정되지 않았습니다');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: maxTokens,
+      messages
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API 오류 ${res.status}`);
+  }
+  const data = await res.json();
+  let text = data.content[0].text.trim();
+  if (text.startsWith('```')) text = text.replace(/^```\w*\n?/, '').replace(/\n?```$/, '').trim();
+  return text;
+}
+
+// ─── AI 위자드 모달 ───
+const aiModal = document.getElementById('aiModal');
+const aiBody = document.getElementById('aiModalBody');
+const aiActions = document.getElementById('aiModalActions');
+const aiStep = document.getElementById('aiStep');
+
+function closeAiModal() { aiModal.classList.remove('show'); }
+aiModal.onclick = e => { if (e.target === aiModal) closeAiModal(); };
+
+async function openAiWizard(equipName) {
+  if (!getApiKey()) {
+    alert('전역 설정에서 Claude API Key를 먼저 입력하세요.');
+    return;
+  }
+  aiModal.classList.add('show');
+  aiStep.textContent = '1/3 — 장비 정보 파악 중';
+  aiBody.innerHTML = `<div style="text-align:center;padding:24px"><div class="spinner"></div><p style="color:#aaa;margin-top:10px">"${equipName}" 관련 질문을 생성하고 있습니다...</p></div>`;
+  aiActions.innerHTML = `<button class="btn-cancel" onclick="closeAiModal()">취소</button>`;
+
+  try {
+    // Step 1: AI가 장비 관련 질문 생성
+    const qText = await callClaude([{ role: 'user', content:
+      `You are a lab equipment expert. A user wants to add "${equipName}" to a 3D lab layout simulator.
+Generate 3-5 clarifying questions to determine the exact type, size, and configuration.
+Each question should have 2-4 predefined options.
+
+Output ONLY a JSON array of questions:
+[
+  {
+    "question": "질문 텍스트 (한국어)",
+    "options": ["옵션1", "옵션2", "옵션3"],
+    "key": "short_english_key"
+  }
+]
+
+Always include these questions:
+1. Installation type (바닥형/탁상형/벽걸이형 etc.)
+2. Size category with real dimensions
+3. At least one equipment-specific feature question
+
+All question text and options MUST be in Korean. Respond with ONLY the JSON array.`
+    }]);
+
+    const questions = JSON.parse(qText);
+    showQuestionStep(equipName, questions);
+  } catch (e) {
+    aiBody.innerHTML = `<div style="color:#ff6b6b;padding:10px">❌ ${e.message}</div>`;
+    aiActions.innerHTML = `<button class="btn-cancel" onclick="closeAiModal()">닫기</button>`;
+  }
+}
+
+function showQuestionStep(equipName, questions) {
+  aiStep.textContent = '2/3 — 세부사항 선택';
+  const answers = {};
+
+  let html = `<p style="font-size:12px;color:#aaa;margin-bottom:12px">"<b style="color:#fff">${equipName}</b>" 추가를 위해 아래 질문에 답해주세요.</p>`;
+  questions.forEach((q, qi) => {
+    html += `<div class="q-group"><div class="q-label">${q.question}</div><div class="q-options" data-key="${q.key}">`;
+    q.options.forEach((opt, oi) => {
+      html += `<div class="q-opt" data-qi="${qi}" data-val="${opt}">${opt}</div>`;
+    });
+    html += `</div></div>`;
+    answers[q.key] = null;
+  });
+  aiBody.innerHTML = html;
+
+  // 옵션 클릭 핸들러
+  aiBody.querySelectorAll('.q-opt').forEach(el => {
+    el.onclick = () => {
+      const container = el.closest('.q-options');
+      container.querySelectorAll('.q-opt').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      answers[container.dataset.key] = el.dataset.val;
+    };
+  });
+
+  // 첫 번째 옵션 기본 선택
+  aiBody.querySelectorAll('.q-options').forEach(container => {
+    const first = container.querySelector('.q-opt');
+    if (first) { first.classList.add('selected'); answers[container.dataset.key] = first.dataset.val; }
+  });
+
+  aiActions.innerHTML = `
+    <button class="btn-cancel" onclick="closeAiModal()">취소</button>
+    <button class="btn-primary" id="aiGenBtn">3D 형상 생성 →</button>
+  `;
+  document.getElementById('aiGenBtn').onclick = () => generateFromAnswers(equipName, questions, answers);
+}
+
+async function generateFromAnswers(equipName, questions, answers) {
+  aiStep.textContent = '3/3 — 3D 형상 생성 중';
+  const answersDesc = questions.map(q => `${q.question}: ${answers[q.key] || '미선택'}`).join('\n');
+
+  aiBody.innerHTML = `<div style="text-align:center;padding:24px"><div class="spinner"></div><p style="color:#aaa;margin-top:10px">3D 형상을 생성하고 있습니다...</p></div>`;
+  aiActions.innerHTML = '';
+
+  try {
+    const resultText = await callClaude([{ role: 'user', content:
+      `You are a 3D modeler for lab/industrial equipment. Create a realistic simplified 3D model using primitives.
+
+Equipment: "${equipName}"
+User specifications:
+${answersDesc}
+
+Output a JSON object with:
+{
+  "name": "표시될 장비명 (한국어, 구체적으로)",
+  "w": width_meters,
+  "d": depth_meters,
+  "h": height_meters,
+  "color": "#hex_main_color",
+  "category": "floor" or "tabletop",
+  "surface": false,
+  "parts": [
+    {
+      "type": "box" or "cylinder",
+      "w": fraction_of_equip_width,
+      "h": fraction_of_equip_height,
+      "d": fraction_of_equip_depth,
+      "x": x_pos_fraction, "y": y_pos_fraction, "z": z_pos_fraction,
+      "color": "#hex"
+    }
+  ]
+}
+
+For cylinder parts, use: rt (radiusTop fraction of width), rb (radiusBottom fraction of width), h (height fraction), seg (segments).
+Position y: 0=bottom, 1=top. Position is the CENTER of each part.
+Optional part properties: opacity (0-1), emissive ("#hex"), emissiveIntensity (0-1), rx/ry/rz (radians).
+
+Rules:
+- Dimensions (w,d,h) must be realistic meters based on user's size choice
+- Use 4-8 parts for detail
+- Base rests on ground (lowest part y ≈ its_height/2)
+- Use realistic colors matching real equipment
+- Add characteristic features (displays, doors, handles, chambers, etc.)
+
+Respond with ONLY the JSON object. No markdown.`
+    }], 1500);
+
+    const result = JSON.parse(resultText);
+    showPreviewStep(equipName, result, answers);
+  } catch (e) {
+    aiBody.innerHTML = `<div style="color:#ff6b6b;padding:10px">❌ 생성 실패: ${e.message}</div>`;
+    aiActions.innerHTML = `
+      <button class="btn-cancel" onclick="closeAiModal()">닫기</button>
+      <button class="btn-primary" onclick="openAiWizard('${equipName}')">재시도</button>
+    `;
+  }
+}
+
+function showPreviewStep(equipName, result, answers) {
+  aiStep.textContent = '완료 — 확인';
+  const cat = result.category === 'tabletop' ? '탁상형' : '바닥형';
+
+  aiBody.innerHTML = `
+    <div class="preview-box">
+      <div style="font-size:13px;color:#fff;font-weight:600;margin-bottom:8px">${result.name}</div>
+      <div>크기: <span class="dim">${result.w}m × ${result.d}m × ${result.h}m</span></div>
+      <div>분류: <span class="cat">${cat}</span> · 파츠: ${result.parts.length}개</div>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+        색상: <span style="display:inline-block;width:18px;height:18px;background:${result.color};border-radius:3px;border:1px solid #666"></span> ${result.color}
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <label style="color:#aaa;font-size:11px">크기 조정 (미터)</label>
+      <div class="row" style="margin-top:3px">
+        <div><label style="font-size:10px">W</label><input class="q-input" id="aiW" type="number" step="0.05" value="${result.w}"></div>
+        <div><label style="font-size:10px">D</label><input class="q-input" id="aiD" type="number" step="0.05" value="${result.d}"></div>
+        <div><label style="font-size:10px">H</label><input class="q-input" id="aiH" type="number" step="0.05" value="${result.h}"></div>
+      </div>
+    </div>
+  `;
+
+  aiActions.innerHTML = `
+    <button class="btn-cancel" onclick="closeAiModal()">취소</button>
+    <button class="btn-primary" id="aiConfirmBtn">✅ 추가</button>
+  `;
+
+  document.getElementById('aiConfirmBtn').onclick = () => {
+    const w = parseFloat(document.getElementById('aiW').value) || result.w;
+    const d = parseFloat(document.getElementById('aiD').value) || result.d;
+    const h = parseFloat(document.getElementById('aiH').value) || result.h;
+
+    // AI 파츠 캐시에 저장
+    const cacheKey = result.name;
+    AI_PRIM_CACHE[cacheKey] = result.parts;
+    localStorage.setItem('aiPrimCache', JSON.stringify(AI_PRIM_CACHE));
+
+    // 라이브러리에 추가
+    const spec = {
+      name: result.name, w, d, h,
+      color: result.color, opacity: 1, showLabel: true,
+      category: result.category || 'floor',
+      surface: result.surface || false
+    };
+    LIBRARY.push(spec);
+    renderLibrary();
+
+    // 바로 배치
+    addEquipment(spec);
+
+    closeAiModal();
+    logMsg(`✅ "${result.name}" AI 장비 추가 완료`);
+  };
+}
+
+// 인라인 onclick에서 접근 가능하도록 window에 노출
+window.closeAiModal = closeAiModal;
+window.openAiWizard = openAiWizard;
+
+// 기존 자동 생성 (배치 시 캐시 히트 또는 백그라운드)
+async function generateAIPrimitive(name) {
+  if (AI_PRIM_CACHE[name]) return AI_PRIM_CACHE[name];
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+  const aiEnabled = document.getElementById('aiAutoGen')?.checked;
+  if (!aiEnabled) return null;
+
+  try {
+    logMsg(`🤖 "${name}" AI 3D 형상 생성 중...`);
+    const text = await callClaude([{ role: 'user', content:
+      `You are a 3D modeler creating simplified lab/industrial equipment using primitive shapes.
+Given equipment name "${name}", output a JSON array of 3-8 parts.
+
+Each part object:
+- type: "box" or "cylinder"
+- For box: w, h, d (fractions of equipment width, height, depth, 0-1 range)
+- For cylinder: rt, rb, h, seg (radiusTop/Bottom as fraction of width, height as fraction, segments)
+- x, y, z: position as fractions (x of width, y of height, z of depth). y=0 is bottom, y=1 is top. Position is CENTER of the part.
+- color: hex string like "#555555"
+- Optional: opacity (0-1 for transparent parts like glass), emissive (hex), emissiveIntensity (0-1), rx/ry/rz (rotation radians)
+
+Design rules:
+- Equipment base should rest on ground (lowest part y ~ part_h/2)
+- Use realistic colors for that equipment type
+- Keep shapes simple but recognizable
+- Main body typically takes 60-90% of dimensions
+- Add details like doors, displays, handles as smaller parts
+
+Respond with ONLY a valid JSON array. No markdown, no explanation.`
+    }]);
+    const parts = JSON.parse(text);
+    AI_PRIM_CACHE[name] = parts;
+    localStorage.setItem('aiPrimCache', JSON.stringify(AI_PRIM_CACHE));
+    logMsg(`✅ "${name}" AI 3D 형상 생성 완료 (${parts.length}개 파츠)`);
+    return parts;
+  } catch (e) {
+    logMsg(`❌ AI 형상 생성 실패: ${e.message}`);
+    return null;
+  }
+}
+
+function buildFromAIParts(parts, w, d, h, baseColor) {
+  const g = new THREE.Group();
+  for (const p of parts) {
+    let geo;
+    const matOpts = { color: p.color || baseColor || '#888888' };
+    if (p.opacity !== undefined && p.opacity < 1) { matOpts.transparent = true; matOpts.opacity = p.opacity; }
+    if (p.emissive) { matOpts.emissive = p.emissive; matOpts.emissiveIntensity = p.emissiveIntensity || 0.5; }
+
+    if (p.type === 'box') {
+      geo = new THREE.BoxGeometry((p.w||0.5)*w, (p.h||0.5)*h, (p.d||0.5)*d);
+    } else if (p.type === 'cylinder') {
+      geo = new THREE.CylinderGeometry((p.rt||0.1)*w, (p.rb||0.1)*w, (p.h||0.3)*h, p.seg||12);
+    } else continue;
+
+    g.add(pm(geo, new THREE.MeshStandardMaterial(matOpts),
+      (p.x||0)*w, (p.y||0.5)*h, (p.z||0)*d, p.rx||0, p.ry||0, p.rz||0));
+  }
+  return g;
+}
 
 function matchPrimitive(name) {
   if (/SEM/i.test(name)) return 'SEM';
@@ -644,6 +1092,12 @@ function matchPrimitive(name) {
   if (/압연/i.test(name)) return '압연기';
   if (/의자/i.test(name)) return '의자';
   if (/경도/i.test(name)) return '경도기';
+  if (/항온항습/i.test(name)) return '항온항습기';
+  if (/공구.*작업대|작업.*벤치/i.test(name)) return '공구작업대';
+  if (/에어컨|냉방/i.test(name)) return '에어컨';
+  if (/파티션|칸막이/i.test(name)) return '파티션';
+  if (/프린터기|복합기|복사기/i.test(name)) return '프린터기';
+  if (/수납장|미니.*수납/i.test(name)) return '수납장';
   return null;
 }
 
@@ -713,8 +1167,18 @@ function addEquipment(spec, x = null, z = null) {
     const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
     mesh = new THREE.Mesh(geo, makeTexMaterials(spec.textureDataURL, p.color, p.opacity));
   } else {
-    const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
-    mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.color, transparent: p.opacity < 1, opacity: p.opacity }));
+    // 캐시에 AI 프리미티브가 있으면 즉시 사용
+    if (AI_PRIM_CACHE[spec.name]) {
+      mesh = buildFromAIParts(AI_PRIM_CACHE[spec.name], p.w, p.d, p.h, p.color);
+      const pickBox = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), new THREE.MeshBasicMaterial({ visible: false }));
+      pickBox.position.y = p.h / 2;
+      pickBox.userData.id = id;
+      mesh.add(pickBox);
+      usePrimitive = true;
+    } else {
+      const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
+      mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.color, transparent: p.opacity < 1, opacity: p.opacity }));
+    }
   }
   if (mesh.geometry) {
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x000000 }));
@@ -726,13 +1190,67 @@ function addEquipment(spec, x = null, z = null) {
   mesh.add(label);
   if (x === null) x = sp.x + sp.w / 2;
   if (z === null) z = sp.z + sp.d / 2;
-  mesh.position.set(x, usePrimitive ? 0 : p.h / 2, z);
+  // 테이블탑 장비: 가장 가까운 surface 위에 자동 배치
+  let baseY = usePrimitive ? 0 : p.h / 2;
+  if (spec.category === 'tabletop') {
+    const surfaces = placed.filter(pi => pi.type === 'equipment' && pi.spec?.surface && pi.spaceId === sp.id);
+    if (surfaces.length > 0) {
+      // 가장 가까운 surface 찾기
+      let best = surfaces[0], bestDist = Infinity;
+      for (const s of surfaces) {
+        const dx = s.mesh.position.x - x, dz = s.mesh.position.z - z;
+        const dist = dx*dx + dz*dz;
+        if (dist < bestDist) { bestDist = dist; best = s; }
+      }
+      const surfH = best.usePrimitive ? best.props.h : (best.mesh.position.y + best.props.h / 2);
+      baseY = surfH + (usePrimitive ? 0 : p.h / 2);
+      x = best.mesh.position.x;
+      z = best.mesh.position.z;
+    }
+  }
+  mesh.position.set(x, baseY, z);
   mesh.userData.id = id;
   scene.add(mesh);
   const edges = mesh.geometry ? new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x000000 })) : null;
   if (edges) mesh.add(edges);
   const item = { id, type: 'equipment', name: spec.name, spaceId: sp.id, spec: { ...spec }, mesh, label, edges, rotY: 0, props: p, textureDataURL: spec.textureDataURL || null, glbDataURL: spec.glbDataURL || null, usePrimitive };
   placed.push(item); refreshPlacedList(); selectItem(id); pushHistory(`+ ${spec.name} 배치`);
+
+  // AI 자동 3D 형상 생성 (캐시 없고, 프리미티브 매칭 안 되고, GLB/텍스처 없을 때)
+  if (!usePrimitive && !spec.glbDataURL && !spec.textureDataURL && !primKey) {
+    generateAIPrimitive(spec.name).then(parts => {
+      if (!parts || !placed.find(pi => pi.id === id)) return;
+      // 기존 mesh를 scene에서 제거하고 AI 프리미티브로 교체
+      const oldPos = mesh.position.clone();
+      const oldRotY = item.rotY || 0;
+      scene.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+
+      const newMesh = buildFromAIParts(parts, p.w, p.d, p.h, p.color);
+      const pickBox = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), new THREE.MeshBasicMaterial({ visible: false }));
+      pickBox.position.y = p.h / 2;
+      pickBox.userData.id = id;
+      newMesh.add(pickBox);
+
+      const newLabel = makeLabelSprite(spec.name);
+      newLabel.position.set(0, p.h + 0.25, 0);
+      newLabel.visible = p.showLabel;
+      newMesh.add(newLabel);
+
+      // 테이블탑이면 기존 Y 유지, 아니면 바닥
+      const newY = (spec.category === 'tabletop' && oldPos.y > 0.1) ? oldPos.y - p.h/2 : 0;
+      newMesh.position.set(oldPos.x, newY, oldPos.z);
+      newMesh.rotation.y = oldRotY;
+      newMesh.userData.id = id;
+      scene.add(newMesh);
+
+      item.mesh = newMesh;
+      item.label = newLabel;
+      item.usePrimitive = true;
+      item.edges = null;
+    });
+  }
+
   return item;
 }
 
@@ -1206,6 +1724,11 @@ document.getElementById('addCustom').onclick = () => {
   LIBRARY.push({ name, w, d, h, color: '#4ec9b0', opacity: 1, showLabel: true, category: 'floor', surface: false });
   renderLibrary();
 };
+document.getElementById('aiAddBtn').onclick = () => {
+  const name = document.getElementById('customName').value.trim();
+  if (!name) { alert('장비명을 입력하세요.'); return; }
+  openAiWizard(name);
+};
 document.getElementById('addDoor').onclick = () => addDoor();
 document.getElementById('addBarrier').onclick = () => addBarrier();
 document.getElementById('addPerson').onclick = () => addPerson();
@@ -1549,11 +2072,15 @@ const collisionGroup = new THREE.Group(); scene.add(collisionGroup);
 function updateCollisions() {
   collisionGroup.traverse(ch => { if (ch.isMesh) { ch.geometry.dispose(); ch.material.dispose(); } });
   collisionGroup.clear();
-  const items = placed.filter(p => ['equipment', 'barrier', 'robot'].includes(p.type) && p.spaceId === activeSpaceId);
+  const items = placed.filter(p => ['equipment', 'barrier'].includes(p.type) && p.spaceId === activeSpaceId);
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
-      const a = new THREE.Box3().setFromObject(items[i].mesh);
-      const b = new THREE.Box3().setFromObject(items[j].mesh);
+      // 테이블탑 장비와 surface(테이블) 간 충돌은 무시
+      const ai = items[i], aj = items[j];
+      if (ai.spec?.category === 'tabletop' && aj.spec?.surface) continue;
+      if (aj.spec?.category === 'tabletop' && ai.spec?.surface) continue;
+      const a = new THREE.Box3().setFromObject(ai.mesh);
+      const b = new THREE.Box3().setFromObject(aj.mesh);
       if (a.intersectsBox(b)) {
         const inter = a.clone().intersect(b);
         const sz = new THREE.Vector3(); inter.getSize(sz);
