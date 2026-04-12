@@ -55,6 +55,20 @@ PRIMITIVES{} — 프리미티브 빌더 (20종, 장비명 자동 매칭)
 - v1 → v2 마이그레이션: `migrateData()` 함수에서 room → spaces[0] 변환
 - 향후 v3: `if (data.version === 2) { ... data.version = 3; }` 패턴
 
+## 실행 환경
+
+- **Anaconda 사용 금지** — miniforge(conda-forge)만 사용
+- 프론트엔드 프로젝트라 클러스터 불필요, 맥북에서 직접 실행
+
+## 알림 시스템 (cluster-notify)
+
+배포/빌드 결과 Telegram 알림:
+```bash
+~/Code/cluster-notify/notify.sh equiment_placement started "GitHub Pages 배포 시작"
+~/Code/cluster-notify/notify.sh equiment_placement training_complete "배포 완료"
+~/Code/cluster-notify/notify.sh equiment_placement error "배포 실패"
+```
+
 ## 배포
 ```bash
 # 수정 후 배포
