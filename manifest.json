@@ -1,0 +1,27 @@
+{
+  "name": "실험실 배치 시뮬레이터 m1",
+  "short_name": "LabPlace",
+  "description": "실험실 장비 배치 3D 시뮬레이터 (모바일 최적화)",
+  "start_url": "./m1.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a1a1c",
+  "theme_color": "#1e1e1e",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"]
+}

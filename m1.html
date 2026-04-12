@@ -1,0 +1,2272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Lab Simulator" />
+<meta name="theme-color" content="#1a1a1c" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<title>Lab Simulator</title>
+<style>
+  :root {
+    /* IKEA 스타일 라이트 팔레트 */
+    --bg-body: #e8e1d0;       /* 바깥 베이지 (레일 주변 gap 색) */
+    --bg: #f5f2ec;            /* 뷰포트 크림 (내부) */
+    --bg-rail: #ffffff;        /* 레일 흰색 */
+    --bg-panel: rgba(255, 255, 255, 0.98);
+    --bg-elev: #f8f5ee;
+    --fg: #2a2a2a;
+    --fg-mid: #555555;
+    --fg-dim: #8a8680;
+    --accent: #2a2a2a;
+    --accent-bg: #f0ebe0;
+    --warn: #d64545;
+    --border: #e5e0d5;
+    --shadow: 0 1px 3px rgba(60, 50, 30, 0.08);
+    --shadow-rail: 0 2px 8px rgba(60, 50, 30, 0.10);
+    --shadow-lg: 0 10px 30px rgba(60, 50, 30, 0.20);
+    --rail-w: 82px;
+    --gap: 14px;             /* 레일 ↔ 뷰포트 간격 */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+  * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: var(--bg-body); color: var(--fg);
+    /* iOS SF Pro Rounded 우선, 한글은 Apple SD Gothic Neo */
+    font-family: -apple-system-rounded, ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 15px; line-height: 1.5;
+    font-weight: 500;
+    letter-spacing: -0.1px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  input, textarea, select { font-size: 16px; font-family: inherit; }
+  button { font-family: inherit; }
+
+  /* ═══════════════════════════════════════════════════════
+     세로 모드 안내 (가로로 돌리라는 오버레이)
+  ═══════════════════════════════════════════════════════ */
+  #portrait-warning {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 40px 24px;
+    color: var(--fg);
+  }
+  #portrait-warning .phone-visual {
+    position: relative; width: 120px; height: 120px;
+    margin-bottom: 32px;
+  }
+  #portrait-warning .phone {
+    position: absolute; left: 50%; top: 50%;
+    width: 54px; height: 96px;
+    border: 4px solid var(--accent);
+    border-radius: 12px;
+    background: transparent;
+    transform-origin: center; transform: translate(-50%, -50%);
+    animation: rotate-phone 2.8s ease-in-out infinite;
+  }
+  #portrait-warning .phone::before {
+    content: ''; position: absolute;
+    left: 50%; top: 6px; transform: translateX(-50%);
+    width: 18px; height: 3px; background: var(--accent); border-radius: 2px;
+  }
+  #portrait-warning .phone::after {
+    content: ''; position: absolute;
+    left: 50%; bottom: 4px; transform: translateX(-50%);
+    width: 18px; height: 18px; border: 2px solid var(--accent); border-radius: 50%;
+  }
+  @keyframes rotate-phone {
+    0%, 30% { transform: translate(-50%, -50%) rotate(0deg); }
+    50%, 80% { transform: translate(-50%, -50%) rotate(-90deg); }
+    100% { transform: translate(-50%, -50%) rotate(0deg); }
+  }
+  #portrait-warning .arrow {
+    position: absolute; right: -14px; top: 50%; transform: translateY(-50%);
+    font-size: 30px; color: var(--accent); font-weight: 700;
+    animation: arrow-bounce 2.8s ease-in-out infinite;
+  }
+  @keyframes arrow-bounce {
+    0%, 40% { opacity: 0; transform: translateY(-50%) translateX(0); }
+    50%, 85% { opacity: 1; transform: translateY(-50%) translateX(-6px); }
+    100% { opacity: 0; transform: translateY(-50%) translateX(0); }
+  }
+  #portrait-warning .title {
+    font-size: 24px; font-weight: 700; margin-bottom: 10px;
+    letter-spacing: -0.3px; color: var(--fg);
+  }
+  #portrait-warning .sub {
+    font-size: 14px; color: var(--fg-mid); line-height: 1.6;
+    max-width: 280px; font-weight: 500;
+  }
+  #portrait-warning .brand {
+    position: absolute; top: calc(var(--safe-top) + 24px); left: 0; right: 0;
+    text-align: center; font-size: 11px; color: var(--fg-dim);
+    font-weight: 700; letter-spacing: 1.5px;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     가로 모드 앱 레이아웃 (항상 표시, 세로 경고로 덮음)
+  ═══════════════════════════════════════════════════════ */
+  #app {
+    position: fixed; inset: 0;
+    /* 항상 display: block - 3D 뷰포트 레이아웃 유지 */
+  }
+  #portrait-warning { z-index: 10000; }
+
+  @media (orientation: portrait) {
+    #portrait-warning { display: flex; }
+  }
+  @media (orientation: landscape) {
+    #portrait-warning { display: none; }
+  }
+
+  /* 3D 뷰포트 (레일 사이, 여백 + 라운드) */
+  #viewport {
+    position: absolute;
+    top: calc(var(--safe-top) + var(--gap));
+    bottom: calc(var(--safe-bottom) + var(--gap));
+    left: calc(var(--rail-w) + var(--safe-left) + var(--gap));
+    right: calc(var(--rail-w) + var(--safe-right) + var(--gap));
+    background: var(--bg);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-rail);
+  }
+  #viewport canvas {
+    display: block;
+    touch-action: none;
+  }
+
+  /* ─── 좌/우 레일 (safe-area 포함 너비로 엣지까지) ─── */
+  .rail {
+    position: absolute;
+    top: 0; bottom: 0;
+    padding-top: calc(var(--safe-top) + 6px);
+    padding-bottom: calc(var(--safe-bottom) + 6px);
+    background: var(--bg-rail);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px;
+    z-index: 100;
+    overflow-y: auto; overflow-x: hidden;
+    scrollbar-width: none;
+    box-shadow: var(--shadow-rail);
+  }
+  .rail::-webkit-scrollbar { display: none; }
+  #left-rail {
+    left: 0;
+    /* safe-area(노치)만큼 + rail-w 만큼 → 배경이 화면 엣지까지 */
+    width: calc(var(--rail-w) + var(--safe-left));
+    padding-left: var(--safe-left);
+  }
+  #right-rail {
+    right: 0;
+    width: calc(var(--rail-w) + var(--safe-right));
+    padding-right: var(--safe-right);
+  }
+
+  .rail-btn {
+    width: calc(100% - 8px);
+    min-height: 52px;
+    flex-shrink: 0;
+    background: transparent; color: var(--fg);
+    border: 0; padding: 6px 4px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+    cursor: pointer; position: relative;
+    transition: background 0.15s;
+    border-radius: 10px;
+    margin: 0 4px;
+  }
+  .rail-btn:active { background: var(--accent-bg); transform: scale(0.96); }
+  .rail-btn.active { background: var(--accent-bg); }
+  .rail-btn.active .icon-svg { color: var(--accent); }
+  .rail-btn.active .lbl { color: var(--accent); font-weight: 700; }
+  .rail-btn:disabled { opacity: 0.3; }
+  .rail-btn .icon-svg {
+    width: 24px; height: 24px;
+    color: var(--fg-mid);
+    display: block;
+    flex-shrink: 0;
+  }
+  .rail-btn .icon-svg svg {
+    width: 100%; height: 100%;
+    display: block;
+    stroke: currentColor;
+    fill: none;
+  }
+  .rail-btn .lbl {
+    font-size: 10px;
+    color: var(--fg-mid);
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .rail-btn.danger .icon-svg { color: var(--warn); }
+  .rail-btn.danger .lbl { color: var(--warn); }
+  .rail-btn .badge-count {
+    position: absolute; top: 4px; right: 8px;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    background: var(--accent); color: #fff;
+    border-radius: 9px; font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--bg-rail);
+  }
+  .rail-btn .badge-count:empty,
+  .rail-btn .badge-count[data-count="0"] { display: none; }
+  .rail-sep {
+    width: calc(100% - 24px); height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     플로팅 패널 (레일 안쪽에 슬라이드-인)
+  ═══════════════════════════════════════════════════════ */
+  .panel {
+    position: absolute;
+    top: calc(var(--safe-top) + 10px);
+    bottom: calc(var(--safe-bottom) + 10px);
+    width: 280px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    z-index: 105;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-12px);
+    transition: opacity 0.2s, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .panel.show {
+    opacity: 1; pointer-events: auto; transform: translateX(0);
+  }
+  #panel-left {
+    left: calc(var(--rail-w) + var(--safe-left) + var(--gap));
+  }
+  #panel-right {
+    right: calc(var(--rail-w) + var(--safe-right) + var(--gap));
+    transform: translateX(12px);
+  }
+  #panel-right.show { transform: translateX(0); }
+  .panel-head {
+    padding: 16px 18px 14px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-title {
+    flex: 1; font-size: 16px; font-weight: 700;
+    color: var(--fg); letter-spacing: -0.2px;
+  }
+  .panel-close {
+    width: 32px; height: 32px;
+    background: transparent; color: var(--fg-mid);
+    border: 0; border-radius: 8px;
+    font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .panel-close:active { background: var(--accent-bg); }
+  .panel-body {
+    flex: 1; overflow-y: auto; overscroll-behavior: contain;
+    padding: 14px 14px 18px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     상단 플로팅 컨텍스트 바 (선택된 객체)
+  ═══════════════════════════════════════════════════════ */
+  #ctxbar {
+    position: absolute;
+    left: 50%; top: calc(var(--safe-top) + 10px);
+    transform: translateX(-50%);
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 4px 6px 4px 14px;
+    display: none; gap: 2px;
+    align-items: center; z-index: 90;
+    box-shadow: var(--shadow-lg);
+  }
+  #ctxbar.show { display: flex; }
+  #ctxLabel {
+    font-size: 13px; color: var(--fg);
+    max-width: 140px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    padding-right: 6px; font-weight: 600;
+  }
+  .ctx-btn {
+    width: 38px; height: 38px;
+    background: transparent; color: var(--fg-mid); border: 0;
+    border-radius: 9px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ctx-btn:active { background: var(--accent-bg); }
+  .ctx-btn svg {
+    width: 18px; height: 18px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .ctx-btn.warn { color: var(--warn); }
+
+  /* ═══════════════════════════════════════════════════════
+     콘텐츠 스타일 (라이트 테마)
+  ═══════════════════════════════════════════════════════ */
+  .cat-bar {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding-bottom: 8px; margin-bottom: 12px;
+    scrollbar-width: none;
+  }
+  .cat-bar::-webkit-scrollbar { display: none; }
+  .cat-chip {
+    padding: 8px 14px; background: var(--bg-elev); color: var(--fg-mid);
+    border: 1px solid var(--border); border-radius: 18px;
+    white-space: nowrap; font-size: 12px;
+    cursor: pointer; font-weight: 600;
+    font-family: inherit;
+  }
+  .cat-chip.active {
+    background: var(--fg); color: #fff;
+    border-color: var(--fg);
+  }
+
+  .equip-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .equip-card {
+    background: #fff; border: 1px solid var(--border);
+    border-radius: 12px; padding: 11px 11px; text-align: left;
+    cursor: pointer; color: var(--fg);
+    min-height: 78px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-size: 13px; font-family: inherit;
+    transition: transform 0.1s, background 0.15s, border-color 0.15s;
+  }
+  .equip-card:active {
+    transform: scale(0.96);
+    background: var(--accent-bg);
+    border-color: var(--fg);
+  }
+  .equip-card .name {
+    font-weight: 600; font-size: 12px;
+    line-height: 1.3; color: var(--fg);
+  }
+  .equip-card .meta {
+    font-size: 10px; color: var(--fg-dim); margin-top: 6px; font-weight: 500;
+  }
+  .equip-card .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 4px;
+  }
+  .equip-card .card-icon {
+    width: 14px; height: 14px; color: var(--fg-dim);
+    flex-shrink: 0;
+  }
+
+  .placed-row {
+    background: #fff; padding: 12px 14px;
+    margin-bottom: 6px; border-radius: 10px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center;
+    font-size: 13px; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .placed-row:active { background: var(--accent-bg); }
+  .placed-row.selected {
+    border-color: var(--fg);
+    background: var(--accent-bg);
+  }
+  .placed-row .pname {
+    flex: 1; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; color: var(--fg);
+  }
+  .badge {
+    font-size: 9px; padding: 3px 8px; border-radius: 8px;
+    background: var(--fg); color: #fff; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .badge.door { background: #cc8844; }
+  .badge.barrier { background: #4488cc; }
+  .badge.person { background: #e58a44; }
+  .badge.robot { background: #b25525; }
+
+  .form-row { margin-bottom: 14px; }
+  .form-row label {
+    display: block; font-size: 11px; color: var(--fg-mid);
+    margin-bottom: 6px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .form-row input[type=number],
+  .form-row input[type=text],
+  .form-row select {
+    width: 100%; padding: 10px 12px;
+    background: #fff; border: 1px solid var(--border);
+    color: var(--fg); border-radius: 10px;
+    font-size: 14px; font-family: inherit; font-weight: 500;
+  }
+  .form-row input[type=number]:focus,
+  .form-row input[type=text]:focus,
+  .form-row select:focus {
+    outline: none; border-color: var(--fg);
+  }
+  .form-row input[type=color] {
+    width: 100%; height: 40px;
+    background: #fff; border: 1px solid var(--border);
+    border-radius: 10px; padding: 3px;
+  }
+  .form-row input[type=range] { width: 100%; }
+  .form-row.three {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+  }
+  .form-row.two {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .palette {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px;
+    margin-top: 6px;
+  }
+  .swatch {
+    aspect-ratio: 1; border-radius: 6px; cursor: pointer;
+    border: 2px solid var(--border);
+  }
+  .swatch:active { transform: scale(0.9); }
+
+  .btn {
+    width: 100%; padding: 12px 14px; border: 0;
+    background: var(--fg); color: #fff; font-weight: 700;
+    border-radius: 10px; cursor: pointer; font-size: 13px;
+    margin-bottom: 6px;
+    font-family: inherit; letter-spacing: -0.1px;
+    transition: transform 0.1s, opacity 0.15s;
+  }
+  .btn:active { transform: scale(0.97); opacity: 0.9; }
+  .btn.ghost {
+    background: #fff; color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .btn.warn { background: var(--warn); color: #fff; }
+  .btn-row { display: flex; gap: 6px; }
+  .btn-row .btn { flex: 1; margin-bottom: 0; }
+
+  /* 섹션 구분 */
+  .section-title {
+    font-size: 10px; color: var(--fg-dim);
+    text-transform: uppercase; letter-spacing: 0.6px;
+    margin: 12px 0 6px; font-weight: 800;
+  }
+
+  /* ─── 토스트 ─── */
+  #toast {
+    position: absolute;
+    left: 50%; bottom: calc(var(--safe-bottom) + 20px);
+    transform: translateX(-50%) translateY(20px);
+    background: #2a2a2a; color: #fff;
+    padding: 11px 20px; border-radius: 24px; font-size: 13px;
+    font-weight: 600;
+    opacity: 0; transition: opacity 0.2s, transform 0.2s;
+    z-index: 200; pointer-events: none; max-width: 70vw; text-align: center;
+    box-shadow: var(--shadow-lg);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ─── 힌트 (짧은 도움말) ─── */
+  #hint {
+    position: absolute;
+    top: calc(var(--safe-top) + 12px); left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.96);
+    color: var(--fg-mid);
+    border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 14px; font-size: 11px;
+    font-weight: 500;
+    z-index: 80; pointer-events: none; text-align: center;
+    max-width: 60vw;
+    transition: opacity 0.3s;
+    box-shadow: var(--shadow);
+  }
+  #hint.hide { opacity: 0; }
+
+  /* 파일 입력 숨김 */
+  input[type=file] { display: none; }
+
+  /* 설치 배너 (PWA) */
+  #installBanner {
+    position: absolute;
+    left: calc(var(--rail-w) + 16px);
+    right: calc(var(--rail-w) + 16px);
+    bottom: calc(var(--safe-bottom) + 16px);
+    background: #fff; border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 16px;
+    display: none; align-items: center; gap: 10px;
+    z-index: 120; box-shadow: var(--shadow-lg);
+  }
+  #installBanner.show { display: flex; }
+  #installBanner .txt { flex: 1; font-size: 12px; line-height: 1.4; color: var(--fg); font-weight: 500; }
+  #installBanner button {
+    padding: 8px 14px; background: var(--fg); color: #fff;
+    border: 0; border-radius: 8px; font-weight: 700; font-size: 12px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     SVG 아이콘 심볼 정의 (한번 정의, 여러 곳에서 <use> 참조)
+════════════════════════════════════════════════ -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;" aria-hidden="true">
+  <defs>
+    <!-- 공통 스타일: 라인 아이콘 (stroke-width=2, linecap/join=round) -->
+    <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 8l-9-5-9 5 9 5 9-5z"/>
+      <path d="M3 8v8l9 5 9-5V8"/>
+      <path d="M12 13v8"/>
+    </symbol>
+    <symbol id="i-door" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 4h12v17H6z"/>
+      <circle cx="15" cy="12" r="0.8" fill="currentColor"/>
+      <path d="M3 21h18"/>
+    </symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16.5 3l5 5L8.5 21l-5-5z"/>
+      <path d="M13 7l2 2M10 10l2 2M7 13l2 2M5 15l1 1"/>
+    </symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7v6h6"/>
+      <path d="M3 13a9 9 0 1 0 3-7l-3 3"/>
+    </symbol>
+    <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/>
+    </symbol>
+    <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 6h13M8 12h13M8 18h13"/>
+      <circle cx="4" cy="6" r="1.2" fill="currentColor"/>
+      <circle cx="4" cy="12" r="1.2" fill="currentColor"/>
+      <circle cx="4" cy="18" r="1.2" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>
+    </symbol>
+    <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <path d="M17 21v-8H7v8M7 3v5h8"/>
+    </symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </symbol>
+    <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <circle cx="8.5" cy="8.5" r="1.5"/>
+      <path d="M21 15l-5-5L5 21"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+    </symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12a9 9 0 1 1-3-6.7"/>
+      <path d="M21 4v5h-5"/>
+    </symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2"/>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6L6 18M6 6l12 12"/>
+    </symbol>
+    <symbol id="i-shelf" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="1"/>
+      <path d="M3 10h18M3 16h18"/>
+    </symbol>
+    <symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 10h18"/>
+      <path d="M3 10v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/>
+      <path d="M6 14v7M18 14v7"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ═══════════════════════════════════════════════
+     세로 모드: 가로로 돌려주세요 안내
+════════════════════════════════════════════════ -->
+<div id="portrait-warning">
+  <div class="brand">LAB SIMULATOR</div>
+  <div class="phone-visual">
+    <div class="phone"></div>
+    <div class="arrow">↻</div>
+  </div>
+  <div class="title">가로로 돌려주세요</div>
+  <div class="sub">Lab Simulator는 가로 모드에 최적화되어 있습니다.<br>기기를 옆으로 돌려 사용해 주세요.</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     가로 모드 앱
+════════════════════════════════════════════════ -->
+<div id="app">
+  <div id="viewport"></div>
+
+  <!-- 힌트 -->
+  <div id="hint">탭하여 선택 · 드래그로 이동 · 두 손가락 줌/팬</div>
+
+  <!-- 선택 컨텍스트 바 -->
+  <div id="ctxbar">
+    <span id="ctxLabel">선택됨</span>
+    <button class="ctx-btn" id="ctxRotate" aria-label="회전" title="회전 (R)"><svg><use href="#i-rotate"/></svg></button>
+    <button class="ctx-btn" id="ctxDup" aria-label="복제" title="복제"><svg><use href="#i-copy"/></svg></button>
+    <button class="ctx-btn" id="ctxEdit" aria-label="편집" title="편집"><svg><use href="#i-edit"/></svg></button>
+    <button class="ctx-btn warn" id="ctxDelete" aria-label="삭제" title="삭제 (Del)"><svg><use href="#i-trash"/></svg></button>
+  </div>
+
+  <!-- 좌측 레일: 도구 (제품/특수/뷰/줄자/되돌리기/공간) -->
+  <div id="left-rail" class="rail">
+    <button class="rail-btn" data-tool="products" aria-label="제품 라이브러리">
+      <span class="icon-svg"><svg><use href="#i-box"/></svg></span>
+      <span class="lbl">제품</span>
+    </button>
+    <button class="rail-btn" data-tool="special" aria-label="특수 객체">
+      <span class="icon-svg"><svg><use href="#i-door"/></svg></span>
+      <span class="lbl">특수</span>
+    </button>
+    <button class="rail-btn" data-tool="camera" aria-label="카메라 뷰">
+      <span class="icon-svg"><svg><use href="#i-camera"/></svg></span>
+      <span class="lbl">뷰</span>
+    </button>
+    <button class="rail-btn" data-tool="ruler" aria-label="줄자">
+      <span class="icon-svg"><svg><use href="#i-ruler"/></svg></span>
+      <span class="lbl">줄자</span>
+    </button>
+    <div class="rail-sep"></div>
+    <button class="rail-btn" data-tool="undo" id="railUndo" aria-label="되돌리기">
+      <span class="icon-svg"><svg><use href="#i-undo"/></svg></span>
+      <span class="lbl">되돌리기</span>
+    </button>
+    <button class="rail-btn" data-tool="space" aria-label="공간 설정">
+      <span class="icon-svg"><svg><use href="#i-home"/></svg></span>
+      <span class="lbl">공간</span>
+    </button>
+  </div>
+
+  <!-- 우측 레일: 목록/편집/저장/불러오기/스크린샷/초기화 -->
+  <div id="right-rail" class="rail">
+    <button class="rail-btn" data-action="list" aria-label="배치 목록">
+      <span class="icon-svg"><svg><use href="#i-list"/></svg></span>
+      <span class="lbl">목록</span>
+      <span class="badge-count" id="placedCount"></span>
+    </button>
+    <button class="rail-btn" data-action="edit" aria-label="선택 편집" id="railEdit">
+      <span class="icon-svg"><svg><use href="#i-edit"/></svg></span>
+      <span class="lbl">편집</span>
+    </button>
+    <div class="rail-sep"></div>
+    <button class="rail-btn" data-action="save" aria-label="저장">
+      <span class="icon-svg"><svg><use href="#i-save"/></svg></span>
+      <span class="lbl">저장</span>
+    </button>
+    <button class="rail-btn" data-action="load" aria-label="열기">
+      <span class="icon-svg"><svg><use href="#i-folder"/></svg></span>
+      <span class="lbl">열기</span>
+    </button>
+    <button class="rail-btn" data-action="screenshot" aria-label="스크린샷">
+      <span class="icon-svg"><svg><use href="#i-image"/></svg></span>
+      <span class="lbl">사진</span>
+    </button>
+    <div class="rail-sep"></div>
+    <button class="rail-btn danger" data-action="reset" aria-label="초기화">
+      <span class="icon-svg"><svg><use href="#i-trash"/></svg></span>
+      <span class="lbl">초기화</span>
+    </button>
+  </div>
+
+  <!-- 좌측 플로팅 패널 -->
+  <div id="panel-left" class="panel">
+    <div class="panel-head">
+      <div class="panel-title" id="panel-left-title">패널</div>
+      <button class="panel-close" id="panel-left-close" aria-label="닫기"><svg width="16" height="16"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="panel-body" id="panel-left-body"></div>
+  </div>
+
+  <!-- 우측 플로팅 패널 -->
+  <div id="panel-right" class="panel">
+    <div class="panel-head">
+      <div class="panel-title" id="panel-right-title">패널</div>
+      <button class="panel-close" id="panel-right-close" aria-label="닫기"><svg width="16" height="16"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="panel-body" id="panel-right-body"></div>
+  </div>
+
+  <!-- 토스트 -->
+  <div id="toast"></div>
+
+  <!-- 설치 배너 -->
+  <div id="installBanner">
+    <div class="txt">홈 화면에 추가하면 앱처럼 사용할 수 있어요</div>
+    <button id="installBtn">설치</button>
+    <button id="installClose" style="background:transparent;color:var(--fg-dim);">✕</button>
+  </div>
+</div>
+
+<!-- 파일 입력 -->
+<input type="file" id="loadFile" accept=".json">
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// 전역 에러 로깅
+window.addEventListener('error', e => console.error('LabSim error:', e.error || e.message));
+window.addEventListener('unhandledrejection', e => console.error('LabSim promise reject:', e.reason));
+
+// ═════════════════════════════════════════════════════════════
+// UI 자체 검증 로직 — 아이콘/폰트가 제대로 렌더되는지 확인
+// ═════════════════════════════════════════════════════════════
+function validateUI() {
+  const issues = [];
+
+  // 1) SVG 아이콘이 실제로 레이아웃을 가지는지 확인
+  const railBtns = document.querySelectorAll('.rail-btn .icon-svg svg');
+  let brokenIcons = 0;
+  railBtns.forEach(svg => {
+    const rect = svg.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) brokenIcons++;
+  });
+  if (brokenIcons > 0) issues.push(`깨진 아이콘 ${brokenIcons}개`);
+
+  // 2) SVG <use> 참조가 실제로 해석됐는지 (심볼 찾기)
+  const symbolIds = ['i-box','i-door','i-camera','i-ruler','i-undo','i-home',
+                     'i-list','i-edit','i-save','i-folder','i-image','i-trash',
+                     'i-rotate','i-copy','i-close','i-shelf','i-table'];
+  const missingSymbols = symbolIds.filter(id => !document.getElementById(id));
+  if (missingSymbols.length > 0) issues.push(`누락 심볼: ${missingSymbols.join(',')}`);
+
+  // 3) 폰트가 로드됐는지 (document.fonts API)
+  if (document.fonts && document.fonts.check) {
+    const roundedLoaded = document.fonts.check('600 16px -apple-system-rounded')
+                       || document.fonts.check('600 16px ui-rounded')
+                       || document.fonts.check('600 16px "SF Pro Rounded"');
+    if (!roundedLoaded) {
+      // iOS Safari는 시스템 폰트라 check()가 false 반환할 수 있음 → 무시
+      console.info('[validateUI] rounded font check: fallback to system');
+    }
+  }
+
+  // 4) 레일 레이아웃 확인 (너비 > 0, 버튼 개수 정상)
+  const leftRail = document.getElementById('left-rail');
+  const rightRail = document.getElementById('right-rail');
+  if (leftRail && leftRail.clientWidth < 40) issues.push('좌측 레일 크기 이상');
+  if (rightRail && rightRail.clientWidth < 40) issues.push('우측 레일 크기 이상');
+
+  // 5) 뷰포트 크기 확인
+  const vp = document.getElementById('viewport');
+  if (vp && (vp.clientWidth < 50 || vp.clientHeight < 50)) {
+    issues.push(`뷰포트 크기 이상: ${vp.clientWidth}x${vp.clientHeight}`);
+  }
+
+  if (issues.length > 0) {
+    console.warn('[validateUI] 문제 발견:', issues);
+    // 5초 뒤 재시도 (초기 로드 지연 대비)
+    return false;
+  }
+  console.info('[validateUI] ✓ UI 정상');
+  return true;
+}
+
+// 초기화 후 순차 검증
+function scheduleValidate() {
+  setTimeout(() => {
+    if (!validateUI()) {
+      // 1차 실패 → 재시도
+      setTimeout(() => {
+        if (!validateUI()) {
+          // 2차 실패 → 토스트로 알림
+          if (typeof toast === 'function') {
+            toast('UI 렌더링 문제 — 새로고침을 시도하세요');
+          }
+        }
+      }, 2000);
+    }
+  }, 800);
+}
+
+// ═════════════════════════════════════════════════════════════
+// Capacitor 네이티브 어댑터 — iOS 앱에서만 동작, 웹에서는 폴백
+// ═════════════════════════════════════════════════════════════
+const NATIVE = typeof window !== 'undefined'
+  && window.Capacitor
+  && typeof window.Capacitor.isNativePlatform === 'function'
+  && window.Capacitor.isNativePlatform();
+
+const Plugins = NATIVE ? window.Capacitor.Plugins : {};
+
+const Native = {
+  isNative: NATIVE,
+
+  // 햅틱 피드백 — 선택/회전/삭제 시 촉각 반응
+  async haptic(style = 'LIGHT') {
+    if (!NATIVE || !Plugins.Haptics) return;
+    try { await Plugins.Haptics.impact({ style }); } catch {}
+  },
+  async hapticSelect() {
+    if (!NATIVE || !Plugins.Haptics) return;
+    try { await Plugins.Haptics.selectionStart(); await Plugins.Haptics.selectionChanged(); await Plugins.Haptics.selectionEnd(); } catch {}
+  },
+  async hapticNotification(type = 'SUCCESS') {
+    if (!NATIVE || !Plugins.Haptics) return;
+    try { await Plugins.Haptics.notification({ type }); } catch {}
+  },
+
+  // 파일 저장 → iOS Files 앱 / 공유 시트
+  async saveFile(filename, contentString, mime = 'application/json') {
+    if (!NATIVE || !Plugins.Filesystem || !Plugins.Share) {
+      // 웹 폴백
+      const blob = new Blob([contentString], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+      return;
+    }
+    try {
+      const res = await Plugins.Filesystem.writeFile({
+        path: filename,
+        data: contentString,
+        directory: 'CACHE',
+        encoding: 'utf8',
+      });
+      await Plugins.Share.share({
+        title: filename,
+        url: res.uri,
+        dialogTitle: '저장 또는 공유',
+      });
+    } catch (err) {
+      console.warn('saveFile 실패:', err);
+    }
+  },
+
+  // 이미지 저장 (스크린샷) — base64 dataURL → 파일 → 공유
+  async saveImage(filename, dataURL) {
+    if (!NATIVE || !Plugins.Filesystem || !Plugins.Share) {
+      const a = document.createElement('a');
+      a.href = dataURL; a.download = filename; a.click();
+      return;
+    }
+    try {
+      const base64 = dataURL.split(',')[1];
+      const res = await Plugins.Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: 'CACHE',
+      });
+      await Plugins.Share.share({
+        title: filename,
+        url: res.uri,
+        dialogTitle: '이미지 공유',
+      });
+    } catch (err) {
+      console.warn('saveImage 실패:', err);
+    }
+  },
+
+  // JSON 불러오기 → iOS Files 피커
+  async pickFile() {
+    // Filesystem 플러그인만으로는 피커가 없음. 일단 웹 input 폴백 사용
+    // 추후 @capacitor-community/file-picker 추가 가능
+    return new Promise(resolve => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = e => {
+        const f = e.target.files[0];
+        if (!f) { resolve(null); return; }
+        const r = new FileReader();
+        r.onload = ev => resolve(ev.target.result);
+        r.readAsText(f);
+      };
+      input.click();
+    });
+  },
+
+  // 상태바 설정
+  async setStatusBar() {
+    if (!NATIVE || !Plugins.StatusBar) return;
+    try {
+      await Plugins.StatusBar.setStyle({ style: 'LIGHT' });
+      await Plugins.StatusBar.setBackgroundColor({ color: '#f5f2ec' });
+      await Plugins.StatusBar.setOverlaysWebView({ overlay: true });
+    } catch {}
+  },
+
+  // 하드웨어 뒤로가기 리스너
+  onBackButton(handler) {
+    if (!NATIVE || !Plugins.App) return () => {};
+    const sub = Plugins.App.addListener('backButton', handler);
+    return () => { sub.then(h => h.remove()).catch(() => {}); };
+  },
+
+  // 앱이 백그라운드로 갔다 돌아올 때
+  onAppStateChange(handler) {
+    if (!NATIVE || !Plugins.App) return () => {};
+    const sub = Plugins.App.addListener('appStateChange', handler);
+    return () => { sub.then(h => h.remove()).catch(() => {}); };
+  },
+};
+
+// 앱 시작 시 상태바 설정
+Native.setStatusBar();
+
+// iOS 스크롤 바운스 방지 (body/html 고정)
+if (NATIVE) {
+  document.documentElement.style.position = 'fixed';
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.position = 'fixed';
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('gesturechange', e => e.preventDefault());
+}
+
+// ───────────────────────── 라이브러리 (데스크톱과 동일) ─────────────────────────
+const LIBRARY = [
+  { name: '광학 테이블',           w: 2.4, d: 1.2, h: 0.9, color: '#555555', category: 'floor', surface: true },
+  { name: '실험 벤치',             w: 1.8, d: 0.75, h: 0.9, color: '#8b6f47', category: 'floor', surface: true },
+  { name: '컴퓨터 책상',           w: 1.4, d: 0.7, h: 0.75, color: '#6f5b3e', category: 'floor', surface: true },
+  { name: 'PBF 3D 프린터 (소형)',  w: 1.2, d: 1.0, h: 1.8, color: '#3a7ca5', category: 'floor' },
+  { name: 'PBF 3D 프린터 (대형)',  w: 2.0, d: 1.5, h: 2.2, color: '#2f5d8e', category: 'floor' },
+  { name: 'SLA 3D 프린터',         w: 0.8, d: 0.7, h: 1.5, color: '#4488aa', category: 'floor' },
+  { name: '와이어 가공기 (EDM)',   w: 1.8, d: 1.4, h: 1.9, color: '#446688', category: 'floor' },
+  { name: '다중 열처리로',         w: 2.5, d: 1.0, h: 1.8, color: '#cc4422', category: 'floor' },
+  { name: '단일 전기로',           w: 0.9, d: 0.8, h: 1.4, color: '#aa3322', category: 'floor' },
+  { name: 'SEM',                   w: 1.5, d: 1.2, h: 1.9, color: '#6b8e23', category: 'floor' },
+  { name: 'XRD',                   w: 1.5, d: 1.0, h: 1.8, color: '#8b7e23', category: 'floor' },
+  { name: '인장시험기',            w: 0.8, d: 0.6, h: 2.0, color: '#777777', category: 'floor' },
+  { name: '글로브박스',            w: 2.0, d: 1.0, h: 1.8, color: '#999988', category: 'floor' },
+  { name: '드래프트 후드',         w: 1.5, d: 0.8, h: 2.2, color: '#b0b0b0', category: 'floor' },
+  { name: '냉장고',                w: 0.7, d: 0.7, h: 1.8, color: '#eeeeee', category: 'floor' },
+  { name: '캐비닛',                w: 0.9, d: 0.5, h: 1.8, color: '#8a7f6e', category: 'floor' },
+  { name: '가스보관함',            w: 0.9, d: 0.5, h: 1.8, color: '#cc9933', category: 'floor' },
+  { name: '공구보관함',            w: 0.9, d: 0.5, h: 1.8, color: '#994444', category: 'floor' },
+  { name: '안전용품 보관함',       w: 0.8, d: 0.5, h: 1.8, color: '#cc4444', category: 'floor' },
+  { name: '미니 압연기',           w: 0.8, d: 0.6, h: 1.2, color: '#556677', category: 'floor' },
+  { name: '레이저 커팅기',         w: 1.5, d: 1.0, h: 1.4, color: '#336699', category: 'floor' },
+  { name: '의자',                  w: 0.5, d: 0.5, h: 0.9, color: '#444466', category: 'floor' },
+  { name: '사무용 의자',           w: 0.55, d: 0.55, h: 1.1, color: '#333355', category: 'floor' },
+  { name: '광학 현미경',           w: 0.4, d: 0.4, h: 0.5, color: '#808080', category: 'tabletop' },
+  { name: '디지털 현미경',         w: 0.35, d: 0.35, h: 0.55, color: '#909090', category: 'tabletop' },
+  { name: 'FDM 3D 프린터',         w: 0.5, d: 0.5, h: 0.6, color: '#5588aa', category: 'tabletop' },
+  { name: '데스크탑 PC + 모니터',  w: 0.6, d: 0.3, h: 0.55, color: '#223344', category: 'tabletop' },
+  { name: '모니터',                w: 0.55, d: 0.2, h: 0.4, color: '#222233', category: 'tabletop' },
+  { name: '초음파 세척기',         w: 0.4, d: 0.3, h: 0.35, color: '#778899', category: 'tabletop' },
+  { name: '연마기',                w: 0.5, d: 0.5, h: 0.4, color: '#666677', category: 'tabletop' },
+  { name: '저울',                  w: 0.3, d: 0.35, h: 0.15, color: '#cccccc', category: 'tabletop' },
+  { name: '데시케이터',            w: 0.5, d: 0.5, h: 0.6, color: '#aabbcc', category: 'tabletop' },
+  { name: '시편보관함',            w: 0.6, d: 0.5, h: 0.5, color: '#7a8a6e', category: 'tabletop' },
+  { name: '3D 스캐너 박스',        w: 0.6, d: 0.6, h: 0.6, color: '#4477aa', category: 'tabletop' },
+  { name: '레이저 각인기',         w: 0.7, d: 0.5, h: 0.5, color: '#335588', category: 'tabletop' },
+  { name: '경화기 (UV/열)',        w: 0.4, d: 0.4, h: 0.45, color: '#996633', category: 'tabletop' },
+  { name: '경도기',                w: 0.4, d: 0.4, h: 0.6, color: '#555566', category: 'tabletop' },
+];
+
+const PALETTE = [
+  '#ff4444','#ff8844','#ffcc44','#88cc44','#44cc44','#44ccaa','#44aaff','#4466ff',
+  '#8844ff','#cc44ff','#ff44aa','#ff4466',
+  '#ffffff','#cccccc','#888888','#555555','#333333','#000000',
+  '#cc8844','#8b6f47','#6b8e23','#3a7ca5','#aa3322','#ff9933','#88ccff','#4ec9b0',
+];
+
+// ───────────────────────── 프리미티브 빌더 ─────────────────────────
+function pm(geo, mat, x, y, z, rx, ry, rz) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x||0, y||0, z||0);
+  if (rx||ry||rz) m.rotation.set(rx||0, ry||0, rz||0);
+  return m;
+}
+const PRIMITIVES = {
+  'SEM': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w*0.9,h*0.55,d*0.9), new THREE.MeshStandardMaterial({color:c}),0,h*0.275,0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.15,w*0.2,h*0.35,12), new THREE.MeshStandardMaterial({color:0x444444}),0,h*0.73,-d*0.1));
+    g.add(pm(new THREE.BoxGeometry(w*0.45,h*0.28,0.04), new THREE.MeshStandardMaterial({color:0x111122,emissive:0x223355,emissiveIntensity:0.5}),w*0.05,h*0.7,d*0.45));
+    return g; },
+  '3D프린터': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.35,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.175,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.92,h*0.55,d*0.92), new THREE.MeshStandardMaterial({color:c,transparent:true,opacity:0.6}),0,h*0.625,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.7,h*0.42,0.02), new THREE.MeshStandardMaterial({color:0x88aacc,transparent:true,opacity:0.25}),0,h*0.58,d*0.47));
+    return g; },
+  '전기로': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.7,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.35,0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.08,w*0.1,h*0.3,8), new THREE.MeshStandardMaterial({color:0x666666}),0,h*0.85,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.6,h*0.4,0.03), new THREE.MeshStandardMaterial({color:0x555555}),0,h*0.35,d*0.51));
+    return g; },
+  '현미경': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.CylinderGeometry(w*0.38,w*0.42,h*0.06,16), new THREE.MeshStandardMaterial({color:0x333333}),0,h*0.03,0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.06,w*0.06,h*0.7,8), new THREE.MeshStandardMaterial({color:c}),-w*0.12,h*0.38,0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.08,w*0.06,h*0.2,8), new THREE.MeshStandardMaterial({color:0x222222}),0,h*0.82,0,0.4));
+    g.add(pm(new THREE.BoxGeometry(w*0.6,h*0.02,d*0.35), new THREE.MeshStandardMaterial({color:0x444444}),0,h*0.2,0));
+    return g; },
+  '후드': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.38,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.19,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.98,h*0.52,d*0.95), new THREE.MeshStandardMaterial({color:0x888888,transparent:true,opacity:0.35}),0,h*0.64,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.6,h*0.08,d*0.5), new THREE.MeshStandardMaterial({color:0x444444}),0,h*0.96,-d*0.1));
+    return g; },
+  '테이블': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.05,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.975,0));
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sz])=>{
+      g.add(pm(new THREE.BoxGeometry(0.05,h*0.95,0.05), new THREE.MeshStandardMaterial({color:0x555555}),sx*(w/2-0.05),h*0.475,sz*(d/2-0.05)));
+    });
+    return g; },
+  '캐비닛': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:c}),0,h/2,0));
+    for (let i=1;i<=3;i++) g.add(pm(new THREE.BoxGeometry(w*0.85,0.015,0.015), new THREE.MeshStandardMaterial({color:0x333333}),0,h*i/4,d*0.51));
+    return g; },
+  '냉장고': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:c}),0,h/2,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.9,0.015,0.015), new THREE.MeshStandardMaterial({color:0x888888}),0,h*0.6,d*0.51));
+    g.add(pm(new THREE.BoxGeometry(0.03,0.12,0.025), new THREE.MeshStandardMaterial({color:0xaaaaaa}),w*0.35,h*0.4,d*0.52));
+    return g; },
+  '글로브박스': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:c,transparent:true,opacity:0.7}),0,h/2,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.85,h*0.55,0.02), new THREE.MeshStandardMaterial({color:0xaaddff,transparent:true,opacity:0.2}),0,h*0.55,d*0.51));
+    [-0.25,0.25].forEach(xf=>g.add(pm(new THREE.SphereGeometry(w*0.08,12,8,0,Math.PI), new THREE.MeshStandardMaterial({color:0x333333}),w*xf,h*0.4,d*0.52)));
+    return g; },
+  '인장시험기': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.15,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.075,0));
+    [-1,1].forEach(sx=>g.add(pm(new THREE.BoxGeometry(w*0.08,h*0.9,d*0.08), new THREE.MeshStandardMaterial({color:0x555555}),sx*w*0.35,h*0.55,0)));
+    g.add(pm(new THREE.BoxGeometry(w*0.78,h*0.08,d*0.6), new THREE.MeshStandardMaterial({color:0x666666}),0,h*0.5,0));
+    return g; },
+  'XRD': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.5,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.25,0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.2,w*0.2,h*0.4,16), new THREE.MeshStandardMaterial({color:0x555555}),0,h*0.7,0));
+    return g; },
+  'EDM': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.4,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.2,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.3,h*0.55,d*0.3), new THREE.MeshStandardMaterial({color:0x555555}),-w*0.25,h*0.68,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.7,h*0.3,d*0.7), new THREE.MeshStandardMaterial({color:0x88aacc,transparent:true,opacity:0.3}),w*0.05,h*0.55,0));
+    return g; },
+  'PC': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w*0.6,h*0.75,0.03), new THREE.MeshStandardMaterial({color:0x111122,emissive:0x223355,emissiveIntensity:0.4}),0,h*0.43,-d*0.1));
+    g.add(pm(new THREE.BoxGeometry(w*0.45,0.02,d*0.5), new THREE.MeshStandardMaterial({color:0x333333}),0,0.01,d*0.2));
+    return g; },
+  '모니터': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.85,0.03), new THREE.MeshStandardMaterial({color:0x111122,emissive:0x223355,emissiveIntensity:0.4}),0,h*0.5,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.15,0.02,d*0.6), new THREE.MeshStandardMaterial({color:0x444444}),0,0.01,0));
+    return g; },
+  '보관함': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:c}),0,h/2,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.88,h*0.9,0.015), new THREE.MeshStandardMaterial({color:0x777766}),0,h*0.5,d*0.51));
+    return g; },
+  '압연기': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w,h*0.3,d), new THREE.MeshStandardMaterial({color:c}),0,h*0.15,0));
+    g.add(pm(new THREE.CylinderGeometry(h*0.12,h*0.12,w*0.7,12), new THREE.MeshStandardMaterial({color:0x888888}),0,h*0.52,0,0,0,Math.PI/2));
+    return g; },
+  '의자': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.CylinderGeometry(w*0.4,w*0.4,0.06,12), new THREE.MeshStandardMaterial({color:c}),0,h*0.45,0));
+    g.add(pm(new THREE.BoxGeometry(w*0.7,h*0.35,0.04), new THREE.MeshStandardMaterial({color:c}),0,h*0.7,-d*0.35));
+    g.add(pm(new THREE.CylinderGeometry(0.03,0.03,h*0.4,6), new THREE.MeshStandardMaterial({color:0x555555}),0,h*0.22,0));
+    return g; },
+  '경도기': (w,d,h,c) => { const g=new THREE.Group();
+    g.add(pm(new THREE.BoxGeometry(w*0.8,h*0.15,d*0.8), new THREE.MeshStandardMaterial({color:c}),0,h*0.075,0));
+    g.add(pm(new THREE.CylinderGeometry(w*0.08,w*0.1,h*0.55,8), new THREE.MeshStandardMaterial({color:0x555555}),-w*0.1,h*0.43,0));
+    return g; },
+};
+function matchPrimitive(name) {
+  if (/SEM/i.test(name)) return 'SEM';
+  if (/3D.*프린터|PBF|SLA/i.test(name)) return '3D프린터';
+  if (/전기로|열처리/i.test(name)) return '전기로';
+  if (/현미경/i.test(name)) return '현미경';
+  if (/후드/i.test(name)) return '후드';
+  if (/테이블|벤치|책상/i.test(name)) return '테이블';
+  if (/캐비닛/i.test(name)) return '캐비닛';
+  if (/냉장고/i.test(name)) return '냉장고';
+  if (/글로브|드라이/i.test(name)) return '글로브박스';
+  if (/인장/i.test(name)) return '인장시험기';
+  if (/XRD/i.test(name)) return 'XRD';
+  if (/EDM|와이어.*가공/i.test(name)) return 'EDM';
+  if (/PC|데스크탑/i.test(name)) return 'PC';
+  if (/모니터/i.test(name) && !/PC/i.test(name)) return '모니터';
+  if (/가스.*보관|안전.*보관|공구.*보관|시편.*보관/i.test(name)) return '보관함';
+  if (/압연/i.test(name)) return '압연기';
+  if (/의자/i.test(name)) return '의자';
+  if (/경도/i.test(name)) return '경도기';
+  return null;
+}
+
+// ───────────────────────── Three.js 셋업 ─────────────────────────
+const VP = document.getElementById('viewport');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf5f2ec);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 1000);
+camera.position.set(10, 10, 10);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+VP.appendChild(renderer.domElement);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target.set(4, 0, 3);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.12;
+orbit.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+orbit.minDistance = 1.5;
+orbit.maxDistance = 60;
+scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+const dLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dLight.position.set(10, 20, 10); scene.add(dLight);
+
+function resize() {
+  const w = VP.clientWidth, h = VP.clientHeight;
+  if (w < 1 || h < 1) return; // 레이아웃 아직 안됨
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => {
+  setTimeout(resize, 150);
+  setTimeout(resize, 400);
+});
+// 세로→가로 전환 시 #app의 display가 바뀌며 #viewport가 새로 레이아웃됨
+// → ResizeObserver로 모든 크기 변화 감지
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => resize()).observe(VP);
+}
+// media query 변경 감지 (iOS가 Info.plist 강제 가로여도 이 이벤트는 발화)
+const mql = window.matchMedia('(orientation: landscape)');
+if (mql.addEventListener) {
+  mql.addEventListener('change', () => {
+    setTimeout(resize, 100);
+    setTimeout(resize, 500);
+  });
+}
+resize();
+// 앱 초기화 직후 다시 한 번 — display:none → block 전환 대비
+setTimeout(resize, 50);
+setTimeout(resize, 300);
+setTimeout(resize, 1000);
+
+
+// ───────────────────────── 상태 ─────────────────────────
+let space = { w: 8, d: 6, h: 3, floorColor: 0x8fbc8f, wallColor: 0xe8dcc8, name: '실험실 1' };
+const placed = [];
+let selectedId = null;
+let nextId = 1;
+
+// ───────────────────────── 헬퍼 ─────────────────────────
+function c2i(c) { return typeof c === 'number' ? c : parseInt(String(c).replace('#',''), 16); }
+function i2h(i) { return '#' + Math.max(0, i).toString(16).padStart(6, '0'); }
+
+function makeLabelSprite(text) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const c = document.createElement('canvas');
+  const pad = 14, fs = 44;
+  const font = `bold ${fs}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
+  const mctx = c.getContext('2d'); mctx.font = font;
+  const logW = mctx.measureText(text).width + pad * 2, logH = fs + pad * 2;
+  c.width = logW * dpr; c.height = logH * dpr;
+  const ctx = c.getContext('2d'); ctx.scale(dpr, dpr); ctx.font = font;
+  ctx.fillStyle = 'rgba(0,0,0,0.78)';
+  ctx.beginPath(); ctx.roundRect(0, 0, logW, logH, 6); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(text, pad, logH / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  s.scale.set(logW * 0.0045, logH * 0.0045, 1);
+  return s;
+}
+
+// ───────────────────────── 방 빌드 ─────────────────────────
+const roomGroup = new THREE.Group(); scene.add(roomGroup);
+let floorMesh = null;
+function buildRoom() {
+  roomGroup.traverse(ch => { if (ch.isMesh) { ch.geometry.dispose(); if (ch.material.dispose) ch.material.dispose(); } });
+  roomGroup.clear();
+  const { w, d, h, floorColor, wallColor } = space;
+  floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ color: floorColor, side: THREE.DoubleSide }));
+  floorMesh.rotation.x = -Math.PI / 2; floorMesh.position.set(w/2, 0, d/2);
+  floorMesh.userData.isFloor = true;
+  roomGroup.add(floorMesh);
+  const grid = new THREE.GridHelper(Math.max(w,d)*2, Math.max(w,d)*2, 0x555555, 0x666666);
+  grid.position.set(w/2, 0.002, d/2);
+  grid.material.opacity = 0.3; grid.material.transparent = true;
+  roomGroup.add(grid);
+  const wm = (ww, hh, px, py, pz, ry) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), new THREE.MeshStandardMaterial({ color: wallColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
+    m.position.set(px, py, pz); m.rotation.y = ry; roomGroup.add(m);
+  };
+  wm(w, h, w/2, h/2, 0, 0);
+  wm(w, h, w/2, h/2, d, Math.PI);
+  wm(d, h, 0, h/2, d/2, Math.PI/2);
+  wm(d, h, w, h/2, d/2, -Math.PI/2);
+}
+buildRoom();
+
+// 초기 카메라 위치
+function fitCamera() {
+  const cx = space.w / 2, cz = space.d / 2, ch = space.h / 2;
+  const dist = Math.max(space.w, space.d) * 1.5;
+  camera.position.set(cx + dist, dist, cz + dist);
+  orbit.target.set(cx, ch * 0.5, cz);
+  orbit.update();
+}
+fitCamera();
+
+// ───────────────────────── 장비 추가 ─────────────────────────
+function addEquipment(spec, x, z) {
+  const id = nextId++;
+  const p = { w: spec.w, d: spec.d, h: spec.h, color: c2i(spec.color), opacity: 1, showLabel: true };
+  const primKey = matchPrimitive(spec.name);
+  let mesh, usePrimitive = false;
+  if (primKey && PRIMITIVES[primKey]) {
+    mesh = PRIMITIVES[primKey](p.w, p.d, p.h, p.color);
+    const pickBox = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), new THREE.MeshBasicMaterial({ visible: false }));
+    pickBox.position.y = p.h / 2; pickBox.userData.id = id;
+    mesh.add(pickBox);
+    usePrimitive = true;
+  } else {
+    mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(p.w, p.h, p.d),
+      new THREE.MeshStandardMaterial({ color: p.color })
+    );
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x000000 }));
+    mesh.add(edges);
+  }
+  const label = makeLabelSprite(spec.name);
+  label.position.set(0, usePrimitive ? p.h + 0.25 : p.h / 2 + 0.25, 0);
+  mesh.add(label);
+  if (x === undefined) x = space.w / 2;
+  if (z === undefined) z = space.d / 2;
+  mesh.position.set(x, usePrimitive ? 0 : p.h / 2, z);
+  mesh.userData.id = id;
+  scene.add(mesh);
+  const item = { id, type: 'equipment', name: spec.name, spec: { ...spec }, mesh, label, rotY: 0, props: p, usePrimitive };
+  placed.push(item);
+  selectItem(id);
+  pushHistory(`+ ${spec.name}`);
+  toast(`${spec.name} 배치됨`);
+  return item;
+}
+
+function updateEquipVisual(item) {
+  const p = item.props;
+  if (item.usePrimitive) {
+    item.mesh.traverse(ch => { if (ch.isMesh && ch.material && ch.material.color) ch.material.color.setHex(p.color); });
+    item.label.position.y = p.h + 0.25;
+    return;
+  }
+  item.mesh.geometry.dispose();
+  item.mesh.geometry = new THREE.BoxGeometry(p.w, p.h, p.d);
+  item.mesh.children.filter(c => c.isLineSegments).forEach(c => item.mesh.remove(c));
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(item.mesh.geometry), new THREE.LineBasicMaterial({ color: 0x000000 }));
+  item.mesh.add(edges);
+  item.mesh.material.color.setHex(p.color);
+  item.label.position.y = p.h / 2 + 0.25;
+  if (item.mesh.position.y < p.h / 2) item.mesh.position.y = p.h / 2;
+}
+
+// ───────────────────────── 문 ─────────────────────────
+function addDoor() {
+  const id = nextId++;
+  const p = { width: 0.9, height: 2.1, color: 0xcc8844, wall: 'south', pos: space.w / 2, hinge: 'left', swing: 'in' };
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(p.width, p.height, 0.06), new THREE.MeshStandardMaterial({ color: p.color }));
+  panel.userData.id = id;
+  const label = makeLabelSprite('문'); label.position.y = p.height / 2 + 0.2; panel.add(label);
+  scene.add(panel);
+  const arc = buildDoorArc(p);
+  scene.add(arc);
+  const item = { id, type: 'door', name: '문', mesh: panel, arc, label, props: p };
+  placed.push(item);
+  updateDoor(item);
+  selectItem(id);
+  pushHistory('+ 문');
+  toast('문 배치됨 - 드래그로 벽에 붙이세요');
+}
+
+function buildDoorArc(p) {
+  const v = { south:{r:[1,0],i:[0,1]}, north:{r:[-1,0],i:[0,-1]}, west:{r:[0,-1],i:[1,0]}, east:{r:[0,1],i:[-1,0]} }[p.wall];
+  const ctr = { south:[p.pos, 0], north:[p.pos, space.d], west:[0, p.pos], east:[space.w, p.pos] }[p.wall];
+  const hw = p.width / 2, hs = p.hinge === 'left' ? -1 : 1;
+  const hx = ctr[0] + hs * hw * v.r[0], hz = ctr[1] + hs * hw * v.r[1];
+  const cd = p.hinge === 'left' ? v.r : [-v.r[0], -v.r[1]];
+  const ss = p.swing === 'in' ? 1 : -1;
+  const od = [ss * v.i[0], ss * v.i[1]];
+  const sa = Math.atan2(cd[1], cd[0]), ea = Math.atan2(od[1], od[0]);
+  let df = ea - sa; if (df > Math.PI) df -= 2 * Math.PI; if (df < -Math.PI) df += 2 * Math.PI;
+  const pts = [new THREE.Vector3(hx, 0.015, hz)];
+  for (let i = 0; i <= 20; i++) { const a = sa + df * (i/20); pts.push(new THREE.Vector3(hx + p.width*Math.cos(a), 0.015, hz + p.width*Math.sin(a))); }
+  pts.push(new THREE.Vector3(hx, 0.015, hz));
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffcc00 }));
+}
+
+function updateDoor(item) {
+  const p = item.props, hw = p.width / 2;
+  if (p.wall === 'south' || p.wall === 'north') p.pos = Math.max(hw, Math.min(space.w - hw, p.pos));
+  else p.pos = Math.max(hw, Math.min(space.d - hw, p.pos));
+  item.mesh.material.color.setHex(p.color);
+  const off = 0.04;
+  let px, pz, ry;
+  const ctr = { south:[p.pos, 0], north:[p.pos, space.d], west:[0, p.pos], east:[space.w, p.pos] }[p.wall];
+  switch (p.wall) {
+    case 'south': px=ctr[0]; pz=off; ry=0; break;
+    case 'north': px=ctr[0]; pz=space.d-off; ry=Math.PI; break;
+    case 'west':  px=off; pz=ctr[1]; ry=-Math.PI/2; break;
+    case 'east':  px=space.w-off; pz=ctr[1]; ry=Math.PI/2; break;
+  }
+  item.mesh.position.set(px, p.height / 2, pz); item.mesh.rotation.y = ry;
+  scene.remove(item.arc); item.arc = buildDoorArc(p); scene.add(item.arc);
+}
+
+function snapDoor(item, hx, hz) {
+  const cands = [
+    { wall: 'south', dist: Math.abs(hz), pos: hx },
+    { wall: 'north', dist: Math.abs(hz - space.d), pos: hx },
+    { wall: 'west',  dist: Math.abs(hx), pos: hz },
+    { wall: 'east',  dist: Math.abs(hx - space.w), pos: hz },
+  ];
+  cands.sort((a, b) => a.dist - b.dist);
+  item.props.wall = cands[0].wall;
+  item.props.pos = cands[0].pos;
+  updateDoor(item);
+}
+
+// ───────────────────────── 방호벽 ─────────────────────────
+function addBarrier() {
+  const id = nextId++;
+  const p = { w: 2.0, d: 0.05, h: 1.8, color: 0x88ccff, opacity: 0.3 };
+  const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
+  const mat = new THREE.MeshStandardMaterial({ color: p.color, transparent: true, opacity: p.opacity, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geo, mat);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x4488cc }));
+  mesh.add(edges);
+  const label = makeLabelSprite('방호벽'); label.position.set(0, p.h / 2 + 0.2, 0); mesh.add(label);
+  mesh.position.set(space.w / 2, p.h / 2, space.d / 2);
+  mesh.userData.id = id;
+  scene.add(mesh);
+  const item = { id, type: 'barrier', name: '방호벽', mesh, label, rotY: 0, props: p };
+  placed.push(item); selectItem(id); pushHistory('+ 방호벽'); toast('방호벽 배치됨');
+}
+
+// ───────────────────────── 사람 ─────────────────────────
+function addPerson() {
+  const id = nextId++;
+  const p = { color: 0xff9933 };
+  const g = new THREE.Group(); g.userData.id = id;
+  const pick = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.7, 0.3), new THREE.MeshBasicMaterial({ visible: false }));
+  pick.position.y = 0.85; pick.userData.id = id; g.add(pick);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.14, 0.55, 8), new THREE.MeshStandardMaterial({ color: p.color }));
+  torso.position.y = 0.85; g.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffcc88 }));
+  head.position.y = 1.3; g.add(head);
+  [-0.07, 0.07].forEach(x => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.55, 6), new THREE.MeshStandardMaterial({ color: 0x334466 })); l.position.set(x, 0.275, 0); g.add(l); });
+  const label = makeLabelSprite('사람'); label.position.set(0, 1.65, 0); g.add(label);
+  g.position.set(space.w / 2, 0, space.d / 2); scene.add(g);
+  const item = { id, type: 'person', name: '사람', mesh: g, pickBox: pick, torso, label, rotY: 0, props: p };
+  placed.push(item); selectItem(id); pushHistory('+ 사람'); toast('사람 배치됨');
+}
+
+// ───────────────────────── 로봇팔 ─────────────────────────
+function addRobot() {
+  const id = nextId++;
+  const p = { color: 0xff6600, reach: 1.2 };
+  const g = new THREE.Group(); g.userData.id = id;
+  const pick = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.5, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
+  pick.position.y = 0.75; pick.userData.id = id; g.add(pick);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+  base.position.y = 0.06; g.add(base);
+  const lo = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), new THREE.MeshStandardMaterial({ color: p.color }));
+  lo.position.set(0, 0.42, 0); g.add(lo);
+  const up = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), new THREE.MeshStandardMaterial({ color: p.color }));
+  up.position.set(0.18, 0.92, 0); up.rotation.z = -Math.PI / 5; g.add(up);
+  const ee = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.14), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+  ee.position.set(0.36, 1.14, 0); g.add(ee);
+  const rc = new THREE.Mesh(new THREE.CircleGeometry(p.reach, 48), new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0.12, side: THREE.DoubleSide }));
+  rc.rotation.x = -Math.PI / 2; rc.position.y = 0.008; g.add(rc);
+  const label = makeLabelSprite('로봇팔'); label.position.set(0, 1.6, 0); g.add(label);
+  g.position.set(space.w / 2, 0, space.d / 2); scene.add(g);
+  const item = { id, type: 'robot', name: '로봇팔', mesh: g, pickBox: pick, label, rotY: 0, props: p };
+  placed.push(item); selectItem(id); pushHistory('+ 로봇팔'); toast('로봇팔 배치됨');
+}
+
+// ───────────────────────── 선택/삭제/복제 ─────────────────────────
+function pickables() {
+  return placed.map(p => {
+    if (p.type === 'person' || p.type === 'robot') return p.pickBox;
+    if (p.usePrimitive) return p.mesh.children.find(c => c.userData.id === p.id) || p.mesh;
+    return p.mesh;
+  });
+}
+function selectItem(id) {
+  if (id !== null && id !== selectedId) Native.haptic('LIGHT');
+  selectedId = id;
+  placed.forEach(p => {
+    let mat;
+    if (p.type === 'person') mat = p.torso?.material;
+    else if (p.type === 'robot') mat = p.mesh.children.find(c => c.isMesh && c.geometry?.parameters?.height === 0.6)?.material;
+    else mat = Array.isArray(p.mesh.material) ? p.mesh.material[0] : p.mesh.material;
+    if (mat?.emissive) {
+      mat.emissive.setHex(p.id === id ? 0x4ec9b0 : 0);
+      mat.emissiveIntensity = p.id === id ? 0.45 : 0;
+    }
+  });
+  updateCtxBar();
+}
+function removeItem(id) {
+  const idx = placed.findIndex(p => p.id === id); if (idx < 0) return;
+  const it = placed[idx];
+  scene.remove(it.mesh); if (it.arc) scene.remove(it.arc);
+  placed.splice(idx, 1);
+  if (selectedId === id) selectedId = null;
+  updateCtxBar();
+  pushHistory(`- ${it.name}`);
+  Native.hapticNotification('WARNING');
+  toast('삭제됨');
+}
+function duplicateItem(id) {
+  const it = placed.find(p => p.id === id); if (!it) return;
+  if (it.type === 'equipment') {
+    const x = it.mesh.position.x + 0.5, z = it.mesh.position.z + 0.5;
+    const nItem = addEquipment(it.spec, x, z);
+    nItem.mesh.rotation.y = it.mesh.rotation.y;
+    nItem.rotY = it.rotY;
+  } else {
+    toast('특수 객체는 복제할 수 없습니다');
+  }
+}
+
+// ───────────────────────── 컨텍스트 바 ─────────────────────────
+const ctxbar = document.getElementById('ctxbar');
+const ctxLabel = document.getElementById('ctxLabel');
+function updateCtxBar() {
+  const it = placed.find(p => p.id === selectedId);
+  if (it) {
+    ctxbar.classList.add('show');
+    ctxLabel.textContent = it.name;
+  } else {
+    ctxbar.classList.remove('show');
+  }
+  // 우측 레일 편집 버튼 활성/비활성
+  const editBtn = document.getElementById('railEdit');
+  if (editBtn) {
+    editBtn.disabled = !it;
+    editBtn.style.opacity = it ? '1' : '0.4';
+  }
+}
+document.getElementById('ctxRotate').onclick = () => {
+  const it = placed.find(p => p.id === selectedId); if (!it || it.type === 'door') return;
+  it.rotY += Math.PI / 2; it.mesh.rotation.y = it.rotY;
+  Native.haptic('MEDIUM');
+  pushHistory(`↻ ${it.name} 회전`);
+};
+document.getElementById('ctxDup').onclick = () => { if (selectedId) duplicateItem(selectedId); };
+document.getElementById('ctxDelete').onclick = () => {
+  if (!selectedId) return;
+  if (confirm('삭제하시겠습니까?')) removeItem(selectedId);
+};
+document.getElementById('ctxEdit').onclick = () => {
+  if (!selectedId) return;
+  openSheet('편집', renderEditPanel());
+};
+
+// ───────────────────────── 토스트 ─────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ───────────────────────── 터치/드래그 ─────────────────────────
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+let dragging = false, dragOffset = new THREE.Vector3();
+let pointerDownPos = null, pointerDownTime = 0, pointerMoved = false;
+
+function getPointer(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch' && e.isPrimary === false) return;
+  pointerDownPos = { x: e.clientX, y: e.clientY };
+  pointerDownTime = Date.now();
+  pointerMoved = false;
+  getPointer(e);
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(pickables(), false);
+  if (hits.length > 0) {
+    const id = hits[0].object.userData.id;
+    const item = placed.find(p => p.id === id);
+    selectItem(id);
+    const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
+    dragOffset.copy(pt).sub(new THREE.Vector3(item.mesh.position.x, 0, item.mesh.position.z));
+    dragging = true;
+    orbit.enabled = false;
+  }
+});
+
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!pointerDownPos) return;
+  const dx = e.clientX - pointerDownPos.x, dy = e.clientY - pointerDownPos.y;
+  if (Math.hypot(dx, dy) > 4) pointerMoved = true;
+  if (!dragging || selectedId === null) return;
+  getPointer(e);
+  raycaster.setFromCamera(pointer, camera);
+  const item = placed.find(p => p.id === selectedId); if (!item) return;
+  if (item.type === 'door') {
+    const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
+    snapDoor(item, pt.x, pt.z);
+    return;
+  }
+  let placedY = null;
+  if (item.type === 'equipment' && item.spec?.category === 'tabletop') {
+    const surfs = placed.filter(p => p.id !== item.id && p.type === 'equipment' && p.spec?.surface).map(p => p.mesh);
+    surfs.push(floorMesh);
+    const hits = raycaster.intersectObjects(surfs, false);
+    if (hits.length > 0 && hits[0].face) {
+      const n = hits[0].face.normal.clone().transformDirection(hits[0].object.matrixWorld);
+      if (n.y > 0.5) {
+        item.mesh.position.x = hits[0].point.x;
+        item.mesh.position.z = hits[0].point.z;
+        placedY = hits[0].point.y + (item.usePrimitive ? 0 : item.props.h / 2);
+      }
+    }
+  }
+  if (placedY === null) {
+    const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
+    item.mesh.position.x = pt.x - dragOffset.x;
+    item.mesh.position.z = pt.z - dragOffset.z;
+    placedY = (item.type === 'person' || item.type === 'robot' || item.usePrimitive) ? 0 : item.props.h / 2;
+  }
+  item.mesh.position.y = placedY;
+  // 벽 충돌 제약
+  if (item.type !== 'door') {
+    const hw = (item.props?.w || 0.3) / 2, hd = (item.props?.d || 0.3) / 2;
+    item.mesh.position.x = Math.max(hw, Math.min(space.w - hw, item.mesh.position.x));
+    item.mesh.position.z = Math.max(hd, Math.min(space.d - hd, item.mesh.position.z));
+  }
+});
+
+renderer.domElement.addEventListener('pointerup', e => {
+  if (dragging) {
+    dragging = false;
+    orbit.enabled = true;
+    if (pointerMoved) {
+      const item = placed.find(p => p.id === selectedId);
+      if (item) pushHistory(`↔ ${item.name} 이동`);
+    }
+  } else if (!pointerMoved && pointerDownPos) {
+    // 빈 공간 탭 → 선택 해제
+    getPointer(e);
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(pickables(), false);
+    if (hits.length === 0 && selectedId !== null) {
+      selectItem(null);
+    }
+  }
+  pointerDownPos = null; pointerMoved = false;
+});
+renderer.domElement.addEventListener('pointercancel', () => {
+  dragging = false; orbit.enabled = true; pointerDownPos = null;
+});
+
+// ───────────────────────── 히스토리 ─────────────────────────
+const history = [];
+let historyIdx = -1;
+const MAX_HISTORY = 20;
+
+function serializeState() {
+  return JSON.stringify({
+    version: 'm1',
+    space,
+    placed: placed.map(item => {
+      const base = { type: item.type, name: item.name, id: item.id };
+      if (item.type === 'equipment') return { ...base, x: item.mesh.position.x, y: item.mesh.position.y, z: item.mesh.position.z, rotY: item.rotY, props: item.props, specName: item.spec?.name };
+      if (item.type === 'door') return { ...base, props: item.props };
+      if (item.type === 'barrier') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
+      if (item.type === 'person' || item.type === 'robot') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
+    }),
+    nextId,
+  });
+}
+
+function loadState(json) {
+  const data = typeof json === 'string' ? JSON.parse(json) : json;
+  [...placed].forEach(p => { scene.remove(p.mesh); if (p.arc) scene.remove(p.arc); });
+  placed.length = 0; selectedId = null;
+  if (data.space) space = data.space;
+  buildRoom();
+  nextId = data.nextId || 1;
+  (data.placed || []).forEach(d => {
+    if (d.type === 'equipment') {
+      const libSpec = LIBRARY.find(s => s.name === d.specName) || { name: d.name, w: d.props.w, d: d.props.d, h: d.props.h, color: i2h(d.props.color), category: 'floor' };
+      const item = addEquipment(libSpec, d.x, d.z);
+      item.id = d.id; item.mesh.userData.id = d.id;
+      item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
+      item.mesh.position.y = item.usePrimitive ? 0 : (d.y || d.props.h / 2);
+      Object.assign(item.props, d.props);
+      updateEquipVisual(item);
+    } else if (d.type === 'door') {
+      addDoor();
+      const item = placed[placed.length - 1];
+      item.id = d.id; item.mesh.userData.id = d.id;
+      Object.assign(item.props, d.props); updateDoor(item);
+    } else if (d.type === 'barrier') {
+      addBarrier();
+      const item = placed[placed.length - 1];
+      item.id = d.id; item.mesh.userData.id = d.id;
+      Object.assign(item.props, d.props);
+      item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
+      item.mesh.position.set(d.x, d.props.h / 2, d.z);
+    } else if (d.type === 'person') {
+      addPerson();
+      const item = placed[placed.length - 1];
+      item.id = d.id; item.mesh.userData.id = d.id;
+      item.mesh.position.set(d.x, 0, d.z);
+      item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
+    } else if (d.type === 'robot') {
+      addRobot();
+      const item = placed[placed.length - 1];
+      item.id = d.id; item.mesh.userData.id = d.id;
+      item.mesh.position.set(d.x, 0, d.z);
+      item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
+    }
+  });
+  nextId = Math.max(nextId, ...placed.map(p => p.id + 1), 1);
+  selectItem(null);
+}
+
+function pushHistory(desc) {
+  if (historyIdx < history.length - 1) history.splice(historyIdx + 1);
+  history.push({ state: serializeState(), desc });
+  if (history.length > MAX_HISTORY) history.shift();
+  historyIdx = history.length - 1;
+  autoSave();
+  updateUndoBtn();
+  updatePlacedCount();
+}
+function undo() {
+  if (historyIdx <= 0) return;
+  historyIdx--;
+  loadState(history[historyIdx].state);
+  updateUndoBtn();
+  toast('되돌림');
+}
+function updateUndoBtn() {
+  const b = document.getElementById('railUndo');
+  if (!b) return;
+  b.disabled = historyIdx <= 0;
+  b.style.opacity = (historyIdx <= 0) ? '0.35' : '1';
+}
+function autoSave() { try { localStorage.setItem('labLayout_m1', serializeState()); } catch {} }
+try { const s = localStorage.getItem('labLayout_m1'); if (s) loadState(s); } catch {}
+pushHistory('초기 상태');
+updateUndoBtn();
+
+// ═════════════════════════════════════════════════════════════
+// 플로팅 사이드 패널 시스템 (좌/우) — 기존 openSheet 대체
+// ═════════════════════════════════════════════════════════════
+const panels = {
+  left: {
+    el: document.getElementById('panel-left'),
+    body: document.getElementById('panel-left-body'),
+    title: document.getElementById('panel-left-title'),
+    close: document.getElementById('panel-left-close'),
+    activeKey: null,
+  },
+  right: {
+    el: document.getElementById('panel-right'),
+    body: document.getElementById('panel-right-body'),
+    title: document.getElementById('panel-right-title'),
+    close: document.getElementById('panel-right-close'),
+    activeKey: null,
+  },
+};
+
+function openPanel(side, key, title, bodyHTML, onReady) {
+  const p = panels[side];
+  // 같은 키가 이미 열려있으면 토글(닫기)
+  if (p.activeKey === key) {
+    closePanel(side);
+    return;
+  }
+  p.activeKey = key;
+  p.title.textContent = title;
+  p.body.innerHTML = bodyHTML;
+  p.el.classList.add('show');
+  updateRailActive();
+  if (onReady) onReady(p.body);
+}
+
+function closePanel(side) {
+  const p = panels[side];
+  p.el.classList.remove('show');
+  p.activeKey = null;
+  updateRailActive();
+}
+
+function closeAllPanels() {
+  closePanel('left');
+  closePanel('right');
+}
+
+panels.left.close.onclick = () => closePanel('left');
+panels.right.close.onclick = () => closePanel('right');
+
+// 뷰포트 빈 공간 탭 시 패널 닫기 (드래그/선택과 구분)
+// → pointerdown 리스너에서 이미 selectItem(null) 처리하므로
+//   별도로 패널 자동 닫기는 사용자가 명시적으로 X 누르게 함.
+
+// 레일 버튼 활성 상태 표시
+function updateRailActive() {
+  document.querySelectorAll('#left-rail .rail-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tool === panels.left.activeKey);
+  });
+  document.querySelectorAll('#right-rail .rail-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.action === panels.right.activeKey);
+  });
+}
+
+// 호환 래퍼 — 기존 코드가 openSheet/closeSheet를 호출하는 부분을 유지
+// (편집 패널 등은 우측에 열림)
+function openSheet(title, bodyHTML, onReady) {
+  openPanel('right', 'edit', title, bodyHTML, onReady);
+}
+function closeSheet() { closePanel('right'); }
+function popSheet() { closePanel('right'); }
+
+let sheetOpenFlag = false;
+Object.defineProperty(window, '__sheetOpenDummy', { get(){ return sheetOpenFlag = (panels.left.activeKey || panels.right.activeKey) != null; } });
+
+// 기존 fab 관련 전역 변수 stub (나머지 코드 참조 안 하도록)
+let fabOpen = false;
+const fabMenu = { classList: { remove(){}, add(){}, toggle(){} } };
+const fab = { classList: { add(){}, remove(){} }, style: {} };
+
+// ═════════════════════════════════════════════════════════════
+// 라이브러리 패널 (좌측)
+// ═════════════════════════════════════════════════════════════
+let currentCategory = 'all';
+function openLibraryPanel() {
+  const body = renderLibraryBody();
+  openPanel('left', 'products', '제품 라이브러리', body, el => {
+    el.querySelectorAll('.cat-chip').forEach(c => {
+      c.onclick = () => {
+        currentCategory = c.dataset.cat;
+        el.querySelectorAll('.cat-chip').forEach(cc => cc.classList.toggle('active', cc.dataset.cat === currentCategory));
+        el.querySelector('.equip-grid').innerHTML = renderEquipGrid();
+        bindEquipCards(el);
+      };
+    });
+    bindEquipCards(el);
+  });
+}
+function bindEquipCards(el) {
+  el.querySelectorAll('.equip-card').forEach(c => {
+    c.onclick = () => {
+      const idx = parseInt(c.dataset.idx);
+      addEquipment(LIBRARY[idx]);
+      // 패널은 열어둠 - 여러 개 연속 배치할 수 있도록
+    };
+  });
+}
+function renderEquipGrid() {
+  const list = LIBRARY.map((s, idx) => ({ ...s, idx })).filter(s => currentCategory === 'all' || s.category === currentCategory);
+  return list.map(s => `
+    <button class="equip-card" data-idx="${s.idx}">
+      <div class="card-head">
+        <div class="name">${s.name}</div>
+        <svg class="card-icon"><use href="#${s.category === 'tabletop' ? 'i-table' : 'i-shelf'}"/></svg>
+      </div>
+      <div class="meta">${s.w}×${s.d}×${s.h}m</div>
+    </button>
+  `).join('');
+}
+function renderLibraryBody() {
+  return `
+    <div class="cat-bar">
+      <button class="cat-chip ${currentCategory==='all'?'active':''}" data-cat="all">전체</button>
+      <button class="cat-chip ${currentCategory==='floor'?'active':''}" data-cat="floor">바닥</button>
+      <button class="cat-chip ${currentCategory==='tabletop'?'active':''}" data-cat="tabletop">테이블탑</button>
+    </div>
+    <div class="equip-grid">${renderEquipGrid()}</div>
+  `;
+}
+
+// ═════════════════════════════════════════════════════════════
+// 배치된 객체 패널 (우측)
+// ═════════════════════════════════════════════════════════════
+function openPlacedPanel() {
+  const body = renderPlacedBody();
+  openPanel('right', 'list', `배치된 객체 (${placed.length})`, body, el => {
+    el.querySelectorAll('.placed-row').forEach(r => {
+      r.onclick = () => {
+        const id = parseInt(r.dataset.id);
+        selectItem(id);
+        // 패널 유지 - 사용자가 다른 객체도 빠르게 선택 가능
+        el.querySelectorAll('.placed-row').forEach(rr => rr.classList.remove('selected'));
+        r.classList.add('selected');
+      };
+    });
+  });
+}
+function renderPlacedBody() {
+  if (placed.length === 0) return '<div style="color:var(--fg-dim);text-align:center;padding:30px;font-size:12px">배치된 객체가 없습니다.<br>좌측 📦 제품에서 추가하세요.</div>';
+  return placed.map(p => `
+    <div class="placed-row ${p.id===selectedId?'selected':''}" data-id="${p.id}">
+      <span class="pname">${p.name}</span>
+      <span class="badge ${p.type==='equipment'?'':p.type}">${p.type}</span>
+    </div>
+  `).join('');
+}
+
+// 배치 개수 배지 업데이트 (panels TDZ 대비 try/catch)
+function updatePlacedCount() {
+  const el = document.getElementById('placedCount');
+  if (el) {
+    el.textContent = placed.length || '';
+    el.dataset.count = placed.length;
+  }
+  try {
+    if (panels && panels.right && panels.right.activeKey === 'list') {
+      panels.right.body.innerHTML = renderPlacedBody();
+      panels.right.title.textContent = `배치된 객체 (${placed.length})`;
+      panels.right.body.querySelectorAll('.placed-row').forEach(r => {
+        r.onclick = () => {
+          const id = parseInt(r.dataset.id);
+          selectItem(id);
+        };
+      });
+    }
+  } catch (_) { /* panels TDZ — 초기화 전이면 무시 */ }
+}
+
+// 선택된 객체 편집 패널 (우측)
+function openEditPanel() {
+  if (selectedId === null) return;
+  const it = placed.find(p => p.id === selectedId);
+  if (!it) return;
+  const body = renderEditPanel();
+  openPanel('right', 'edit', `편집: ${it.name}`, body, el => {
+    bindEditPanel(el, it);
+  });
+}
+
+// ───────────────────────── 편집 패널 ─────────────────────────
+function renderEditPanel() {
+  const it = placed.find(p => p.id === selectedId);
+  if (!it) return '<div style="color:var(--fg-dim)">선택된 객체가 없습니다</div>';
+  const p = it.props;
+  if (it.type === 'equipment' || it.type === 'barrier') {
+    return `
+      <div class="form-row three">
+        <div><label>W</label><input type="number" id="eW" value="${p.w}" step="0.05"></div>
+        <div><label>D</label><input type="number" id="eD" value="${p.d}" step="0.05"></div>
+        <div><label>H</label><input type="number" id="eH" value="${p.h}" step="0.05"></div>
+      </div>
+      <div class="form-row">
+        <label>색상</label>
+        <input type="color" id="eColor" value="${i2h(p.color)}">
+        <div class="palette">${PALETTE.map(c=>`<div class="swatch" data-color="${c}" style="background:${c}"></div>`).join('')}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="eApply">적용</button>
+        <button class="btn ghost" id="eDup">복제</button>
+      </div>
+      <button class="btn warn" id="eDel">🗑 삭제</button>
+    `;
+  } else if (it.type === 'door') {
+    return `
+      <div class="form-row three">
+        <div><label>너비</label><input type="number" id="eW" value="${p.width}" step="0.05"></div>
+        <div><label>높이</label><input type="number" id="eH" value="${p.height}" step="0.05"></div>
+        <div><label>벽</label>
+          <select id="eWall">
+            <option value="south" ${p.wall==='south'?'selected':''}>남</option>
+            <option value="north" ${p.wall==='north'?'selected':''}>북</option>
+            <option value="east" ${p.wall==='east'?'selected':''}>동</option>
+            <option value="west" ${p.wall==='west'?'selected':''}>서</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>경첩</label>
+        <select id="eHinge">
+          <option value="left" ${p.hinge==='left'?'selected':''}>왼쪽</option>
+          <option value="right" ${p.hinge==='right'?'selected':''}>오른쪽</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>열림 방향</label>
+        <select id="eSwing">
+          <option value="in" ${p.swing==='in'?'selected':''}>안으로</option>
+          <option value="out" ${p.swing==='out'?'selected':''}>밖으로</option>
+        </select>
+      </div>
+      <button class="btn" id="eApply">적용</button>
+      <button class="btn warn" id="eDel">🗑 삭제</button>
+    `;
+  }
+  return `
+    <div class="form-row">
+      <label>현재 위치에서 회전</label>
+      <button class="btn ghost" id="eRot">↻ 90° 회전</button>
+    </div>
+    <button class="btn warn" id="eDel">🗑 삭제</button>
+  `;
+}
+
+// 컨텍스트 바 편집 버튼
+document.getElementById('ctxEdit').onclick = () => {
+  if (selectedId === null) return;
+  openEditPanel();
+};
+function bindEditPanel(el, it) {
+  const p = it.props;
+  const apply = el.querySelector('#eApply');
+  const delBtn = el.querySelector('#eDel');
+  const dupBtn = el.querySelector('#eDup');
+  const rotBtn = el.querySelector('#eRot');
+  if (apply) apply.onclick = () => {
+    if (it.type === 'equipment' || it.type === 'barrier') {
+      p.w = parseFloat(el.querySelector('#eW').value);
+      p.d = parseFloat(el.querySelector('#eD').value);
+      p.h = parseFloat(el.querySelector('#eH').value);
+      p.color = c2i(el.querySelector('#eColor').value);
+      if (it.type === 'equipment') updateEquipVisual(it);
+      else {
+        it.mesh.geometry.dispose();
+        it.mesh.geometry = new THREE.BoxGeometry(p.w, p.h, p.d);
+        it.mesh.material.color.setHex(p.color);
+        it.mesh.position.y = p.h / 2;
+      }
+    } else if (it.type === 'door') {
+      p.width = parseFloat(el.querySelector('#eW').value);
+      p.height = parseFloat(el.querySelector('#eH').value);
+      p.wall = el.querySelector('#eWall').value;
+      p.hinge = el.querySelector('#eHinge').value;
+      p.swing = el.querySelector('#eSwing').value;
+      it.mesh.geometry.dispose();
+      it.mesh.geometry = new THREE.BoxGeometry(p.width, p.height, 0.06);
+      updateDoor(it);
+    }
+    pushHistory(`✎ ${it.name} 수정`);
+    closeSheet();
+  };
+  if (delBtn) delBtn.onclick = () => {
+    if (confirm('삭제하시겠습니까?')) { removeItem(it.id); closeSheet(); }
+  };
+  if (dupBtn) dupBtn.onclick = () => { duplicateItem(it.id); closeSheet(); };
+  if (rotBtn) rotBtn.onclick = () => {
+    it.rotY += Math.PI / 2; it.mesh.rotation.y = it.rotY;
+    pushHistory(`↻ ${it.name} 회전`);
+    closeSheet();
+  };
+  // 색상 팔레트
+  el.querySelectorAll('.swatch').forEach(sw => {
+    sw.onclick = () => {
+      const ci = el.querySelector('#eColor');
+      if (ci) ci.value = sw.dataset.color;
+    };
+  });
+}
+
+// ═════════════════════════════════════════════════════════════
+// 좌측 레일 버튼 바인딩
+// ═════════════════════════════════════════════════════════════
+document.querySelectorAll('#left-rail .rail-btn').forEach(btn => {
+  btn.onclick = () => {
+    const tool = btn.dataset.tool;
+    Native.haptic('LIGHT');
+    if (tool === 'products') {
+      openLibraryPanel();
+    } else if (tool === 'special') {
+      openSpecialPanel();
+    } else if (tool === 'camera') {
+      openCameraPanel();
+    } else if (tool === 'ruler') {
+      // 줄자 기능은 아직 데스크탑 버전에만 있음 - 향후 구현
+      toast('줄자: 곧 지원 예정');
+    } else if (tool === 'undo') {
+      undo();
+    } else if (tool === 'space') {
+      openSpacePanel();
+    }
+  };
+});
+
+// ═════════════════════════════════════════════════════════════
+// 우측 레일 버튼 바인딩
+// ═════════════════════════════════════════════════════════════
+document.querySelectorAll('#right-rail .rail-btn').forEach(btn => {
+  btn.onclick = async () => {
+    const action = btn.dataset.action;
+    Native.haptic('LIGHT');
+    if (action === 'list') {
+      openPlacedPanel();
+    } else if (action === 'edit') {
+      if (selectedId === null) { toast('객체를 먼저 선택하세요'); return; }
+      openEditPanel();
+    } else if (action === 'save') {
+      const filename = `lab_${new Date().toISOString().slice(0,10)}.json`;
+      await Native.saveFile(filename, serializeState());
+      Native.hapticNotification('SUCCESS');
+      toast('저장됨');
+    } else if (action === 'load') {
+      document.getElementById('loadFile').click();
+    } else if (action === 'screenshot') {
+      renderer.render(scene, camera);
+      const dataURL = renderer.domElement.toDataURL('image/png');
+      const filename = `lab_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.png`;
+      await Native.saveImage(filename, dataURL);
+      Native.hapticNotification('SUCCESS');
+      toast('스크린샷 저장됨');
+    } else if (action === 'reset') {
+      if (!confirm('배치된 모든 객체를 초기화하시겠습니까?')) return;
+      [...placed].forEach(p => { scene.remove(p.mesh); if (p.arc) scene.remove(p.arc); });
+      placed.length = 0; selectedId = null; nextId = 1;
+      updateCtxBar(); updatePlacedCount();
+      pushHistory('🗑 초기화');
+      Native.hapticNotification('WARNING');
+      toast('초기화됨');
+      closeAllPanels();
+    }
+  };
+});
+
+// ═════════════════════════════════════════════════════════════
+// 특수 객체 패널 (문/방호벽/사람/로봇)
+// ═════════════════════════════════════════════════════════════
+function openSpecialPanel() {
+  const body = `
+    <div class="section-title">특수 객체</div>
+    <button class="btn ghost" data-add="door">문 추가</button>
+    <button class="btn ghost" data-add="barrier">방호벽 추가</button>
+    <button class="btn ghost" data-add="person">사람 추가</button>
+    <button class="btn ghost" data-add="robot">로봇팔 추가</button>
+  `;
+  openPanel('left', 'special', '특수 객체', body, el => {
+    el.querySelectorAll('[data-add]').forEach(b => {
+      b.onclick = () => {
+        const k = b.dataset.add;
+        if (k === 'door') addDoor();
+        else if (k === 'barrier') addBarrier();
+        else if (k === 'person') addPerson();
+        else if (k === 'robot') addRobot();
+        closePanel('left');
+      };
+    });
+  });
+}
+
+// ═════════════════════════════════════════════════════════════
+// 카메라 패널
+// ═════════════════════════════════════════════════════════════
+function openCameraPanel() {
+  const body = `
+    <div class="section-title">시점 프리셋</div>
+    <div class="btn-row"><button class="btn ghost" data-view="iso">등각</button><button class="btn ghost" data-view="top">탑뷰</button></div>
+    <div class="btn-row" style="margin-top:6px"><button class="btn ghost" data-view="front">정면</button><button class="btn ghost" data-view="side">측면</button></div>
+    <div style="height:10px"></div>
+    <button class="btn" id="camFit">전체 공간 맞춤</button>
+  `;
+  openPanel('left', 'camera', '카메라', body, el => {
+    el.querySelectorAll('[data-view]').forEach(b => {
+      b.onclick = () => {
+        const cx = space.w / 2, cz = space.d / 2, ch = space.h / 2;
+        const dist = Math.max(space.w, space.d) * 1.5;
+        orbit.target.set(cx, ch * 0.5, cz);
+        switch (b.dataset.view) {
+          case 'iso': camera.position.set(cx + dist, dist, cz + dist); break;
+          case 'top': camera.position.set(cx, dist * 2, cz + 0.01); break;
+          case 'front': camera.position.set(cx, ch, cz - dist); break;
+          case 'side': camera.position.set(cx + dist, ch, cz); break;
+        }
+        orbit.update();
+      };
+    });
+    el.querySelector('#camFit').onclick = () => { fitCamera(); };
+  });
+}
+
+// ═════════════════════════════════════════════════════════════
+// 공간 설정 패널 (좌측으로 이동)
+// ═════════════════════════════════════════════════════════════
+function openSpacePanel() {
+  const body = `
+    <div class="form-row three">
+      <div><label>W (m)</label><input type="number" id="rW" value="${space.w}" step="0.1" min="2" max="30"></div>
+      <div><label>D (m)</label><input type="number" id="rD" value="${space.d}" step="0.1" min="2" max="30"></div>
+      <div><label>H (m)</label><input type="number" id="rH" value="${space.h}" step="0.1" min="2" max="6"></div>
+    </div>
+    <div class="form-row two">
+      <div><label>바닥 색</label><input type="color" id="rFC" value="${i2h(space.floorColor)}"></div>
+      <div><label>벽 색</label><input type="color" id="rWC" value="${i2h(space.wallColor)}"></div>
+    </div>
+    <div class="form-row">
+      <label>공간 이름</label>
+      <input type="text" id="rN" value="${space.name}">
+    </div>
+    <button class="btn" id="applySpace">적용</button>
+  `;
+  openPanel('left', 'space', '공간 설정', body, el => {
+    el.querySelector('#applySpace').onclick = () => {
+      space.w = parseFloat(el.querySelector('#rW').value);
+      space.d = parseFloat(el.querySelector('#rD').value);
+      space.h = parseFloat(el.querySelector('#rH').value);
+      space.floorColor = c2i(el.querySelector('#rFC').value);
+      space.wallColor = c2i(el.querySelector('#rWC').value);
+      space.name = el.querySelector('#rN').value;
+      buildRoom(); fitCamera();
+      pushHistory('공간 변경');
+      toast('공간 적용됨');
+      closePanel('left');
+    };
+  });
+}
+
+// loadFile 핸들러
+document.getElementById('loadFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try { loadState(ev.target.result); pushHistory('📂 불러옴'); Native.hapticNotification('SUCCESS'); toast('불러옴'); closeAllPanels(); }
+    catch (err) { Native.hapticNotification('ERROR'); alert('로드 실패: ' + err.message); }
+  };
+  r.readAsText(f); e.target.value = '';
+};
+
+// handleBack (뒤로가기 키/제스처 처리)
+function handleBack() {
+  if (panels.left.activeKey || panels.right.activeKey) {
+    closeAllPanels();
+    return;
+  }
+  if (selectedId !== null) { selectItem(null); return; }
+  toast('홈 화면으로 나가려면 스와이프');
+}
+
+// 하드웨어 뒤로가기 (브라우저 히스토리 + Capacitor App 플러그인)
+function hasOpenUI() {
+  return panels.left.activeKey || panels.right.activeKey || selectedId !== null;
+}
+window.addEventListener('popstate', () => {
+  if (hasOpenUI()) {
+    handleBack();
+    window.history.pushState({}, '');
+  }
+});
+window.history.pushState({}, '');
+
+// iOS에는 하드웨어 뒤로가기가 없지만 swipe-from-edge 제스처가 동일 기능
+// Android에서는 하드웨어 뒤로가기 버튼
+Native.onBackButton(({ canGoBack }) => {
+  if (hasOpenUI()) {
+    handleBack();
+  } else if (Plugins.App) {
+    Plugins.App.exitApp();
+  }
+});
+
+// 앱이 포그라운드로 돌아올 때 오토세이브 복원
+Native.onAppStateChange(({ isActive }) => {
+  if (isActive) {
+    // 필요시 상태 재로드 로직 추가
+  }
+});
+
+// ───────────────────────── 키보드 단축키 (외장 키보드) ─────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'Escape') handleBack();
+  if (e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); }
+  if ((e.key === 'r' || e.key === 'R') && selectedId) {
+    const it = placed.find(p => p.id === selectedId);
+    if (it && it.type !== 'door') { it.rotY += Math.PI / 2; it.mesh.rotation.y = it.rotY; pushHistory(`↻ ${it.name}`); }
+  }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) removeItem(selectedId);
+});
+
+// ───────────────────────── 첫 실행 힌트 자동 숨김 ─────────────────────────
+setTimeout(() => { document.getElementById('hint').classList.add('hide'); }, 6000);
+
+// ───────────────────────── UI 자체 검증 실행 ─────────────────────────
+scheduleValidate();
+
+// ───────────────────────── 충돌 감지 ─────────────────────────
+const collisionGroup = new THREE.Group(); scene.add(collisionGroup);
+function updateCollisions() {
+  collisionGroup.traverse(ch => { if (ch.isMesh) { ch.geometry.dispose(); ch.material.dispose(); } });
+  collisionGroup.clear();
+  const items = placed.filter(p => ['equipment', 'barrier'].includes(p.type));
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const a = new THREE.Box3().setFromObject(items[i].mesh);
+      const b = new THREE.Box3().setFromObject(items[j].mesh);
+      if (a.intersectsBox(b)) {
+        const inter = a.clone().intersect(b);
+        const sz = new THREE.Vector3(); inter.getSize(sz);
+        const ct = new THREE.Vector3(); inter.getCenter(ct);
+        if (sz.x > 0.01 && sz.y > 0.01 && sz.z > 0.01) {
+          const mk = new THREE.Mesh(
+            new THREE.BoxGeometry(sz.x, sz.y, sz.z),
+            new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthTest: false })
+          );
+          mk.position.copy(ct);
+          collisionGroup.add(mk);
+        }
+      }
+    }
+  }
+}
+
+// ───────────────────────── 렌더 루프 ─────────────────────────
+let collisionTimer = 0;
+(function animate() {
+  requestAnimationFrame(animate);
+  orbit.update();
+  if (++collisionTimer >= 45) { collisionTimer = 0; updateCollisions(); }
+  renderer.render(scene, camera);
+})();
+
+// ───────────────────────── PWA 설치 프롬프트 ─────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+document.getElementById('installBtn').onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+};
+document.getElementById('installClose').onclick = () => {
+  document.getElementById('installBanner').classList.remove('show');
+};
+
+// Service Worker 등록 (있을 경우)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
