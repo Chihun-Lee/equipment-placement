@@ -1498,6 +1498,21 @@ function selectItem(id) {
   refreshPlacedList(); refreshEditPanel();
 }
 
+// 테이블탑 장비를 가장 가까운 surface 위에 스냅
+function snapToSurface(item) {
+  const sp = spaces.find(s => s.id === item.spaceId);
+  const surfaces = placed.filter(pi => pi.id !== item.id && pi.type === 'equipment' && pi.spec?.surface && pi.spaceId === item.spaceId);
+  if (surfaces.length === 0) return;
+  let best = surfaces[0], bestDist = Infinity;
+  for (const s of surfaces) {
+    const dx = s.mesh.position.x - item.mesh.position.x, dz = s.mesh.position.z - item.mesh.position.z;
+    const dist = dx*dx + dz*dz;
+    if (dist < bestDist) { bestDist = dist; best = s; }
+  }
+  const surfH = best.usePrimitive ? best.props.h : (best.mesh.position.y + best.props.h / 2);
+  item.mesh.position.y = surfH + (item.usePrimitive ? 0 : item.props.h / 2);
+}
+
 // ─── UI ───
 function renderLibrary() {
   const el = document.getElementById('library'); el.innerHTML = '';
@@ -1642,6 +1657,7 @@ function renderEquipEdit(el, item) {
     <label>색상</label><input type="color" id="eC" value="${i2h(p.color)}">${paletteHTML('eC')}
     <label>투명도 <span id="eOV">${p.opacity.toFixed(2)}</span></label><input type="range" id="eOp" min="0" max="1" step="0.05" value="${p.opacity}">
     <div class="chk"><input type="checkbox" id="eLbl" ${p.showLabel?'checked':''}> 라벨</div>
+    <div class="chk"><input type="checkbox" id="eTabletop" ${item.spec?.category==='tabletop'?'checked':''}> 테이블탑 장비</div>
     <button class="danger" id="delBtn">삭제</button>`;
   const apply = () => {
     item.mesh.position.x = parseFloat(el.querySelector('#eX').value);
@@ -1649,10 +1665,17 @@ function renderEquipEdit(el, item) {
     item.rotY = parseFloat(el.querySelector('#eRot').value)*Math.PI/180; item.mesh.rotation.y = item.rotY;
     p.w = parseFloat(el.querySelector('#eW').value); p.d = parseFloat(el.querySelector('#eD').value); p.h = parseFloat(el.querySelector('#eH').value);
     p.color = c2i(el.querySelector('#eC').value); p.opacity = parseFloat(el.querySelector('#eOp').value); p.showLabel = el.querySelector('#eLbl').checked;
+    // 테이블탑 토글
+    const isTabletop = el.querySelector('#eTabletop').checked;
+    if (!item.spec) item.spec = {};
+    item.spec.category = isTabletop ? 'tabletop' : 'floor';
     el.querySelector('#eOV').textContent = p.opacity.toFixed(2);
-    updateEquipVisual(item); pushHistory(`✏ ${item.name} 편집`);
+    updateEquipVisual(item);
+    // 테이블탑으로 변경 시 가까운 테이블 위로 스냅
+    if (isTabletop) snapToSurface(item);
+    pushHistory(`✏ ${item.name} 편집`);
   };
-  ['eX','eZ','eRot','eW','eD','eH','eC','eOp','eLbl'].forEach(k => el.querySelector('#'+k).oninput = apply);
+  ['eX','eZ','eRot','eW','eD','eH','eC','eOp','eLbl','eTabletop'].forEach(k => el.querySelector('#'+k).oninput = apply);
   el.querySelector('#rotL').onclick = () => { item.rotY -= Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); pushHistory(`↺ ${item.name} 회전`); };
   el.querySelector('#rotR').onclick = () => { item.rotY += Math.PI/2; item.mesh.rotation.y = item.rotY; refreshEditPanel(); pushHistory(`↻ ${item.name} 회전`); };
   el.querySelector('#delBtn').onclick = () => removeItem(item.id);
@@ -1993,12 +2016,26 @@ renderer.domElement.addEventListener('pointermove', e => {
   if (item.type === 'door') { const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt); snapDoor(item, pt.x, pt.z); refreshEditPanel(); return; }
   let placedY = null;
   if (item.type === 'equipment' && item.spec?.category === 'tabletop') {
-    const surfs = placed.filter(p => p.id !== item.id && p.type === 'equipment' && p.spec?.surface && p.spaceId === item.spaceId).map(p => p.mesh);
-    surfs.push(...floorMeshes);
-    const hits = raycaster.intersectObjects(surfs, false);
-    if (hits.length > 0 && hits[0].face) {
-      const n = hits[0].face.normal.clone().transformDirection(hits[0].object.matrixWorld);
-      if (n.y > 0.5) { item.mesh.position.x = hits[0].point.x; item.mesh.position.z = hits[0].point.z; placedY = hits[0].point.y + (item.usePrimitive ? 0 : item.props.h / 2); }
+    // 테이블탑: 마우스로 XZ 이동, Y는 surface 레이캐스트로 결정
+    const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
+    item.mesh.position.x = pt.x - dragOffset.x; item.mesh.position.z = pt.z - dragOffset.z;
+    // surface 위 높이 계산
+    const surfs = placed.filter(p => p.id !== item.id && p.type === 'equipment' && p.spec?.surface && p.spaceId === item.spaceId);
+    let bestSurf = null, bestDist = Infinity;
+    for (const s of surfs) {
+      const dx = s.mesh.position.x - item.mesh.position.x, dz = s.mesh.position.z - item.mesh.position.z;
+      const hw = s.props.w / 2 + 0.1, hd = s.props.d / 2 + 0.1;
+      if (Math.abs(dx) <= hw && Math.abs(dz) <= hd) {
+        const dist = dx*dx + dz*dz;
+        if (dist < bestDist) { bestDist = dist; bestSurf = s; }
+      }
+    }
+    if (bestSurf) {
+      const surfH = bestSurf.usePrimitive ? bestSurf.props.h : (bestSurf.mesh.position.y + bestSurf.props.h / 2);
+      placedY = surfH + (item.usePrimitive ? 0 : item.props.h / 2);
+    } else {
+      // 어떤 surface 위에도 없으면 가장 가까운 surface 높이 유지
+      placedY = item.mesh.position.y;
     }
   }
   if (placedY === null) {
@@ -2130,10 +2167,13 @@ function updateCollisions() {
   const items = placed.filter(p => ['equipment', 'barrier'].includes(p.type) && p.spaceId === activeSpaceId);
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
-      // 테이블탑 장비와 surface(테이블) 간 충돌은 무시
+      // 테이블탑 관련 충돌 무시: 탁상↔테이블, 탁상↔탁상
       const ai = items[i], aj = items[j];
-      if (ai.spec?.category === 'tabletop' && aj.spec?.surface) continue;
-      if (aj.spec?.category === 'tabletop' && ai.spec?.surface) continue;
+      const aiTop = ai.spec?.category === 'tabletop', ajTop = aj.spec?.category === 'tabletop';
+      if (aiTop && aj.spec?.surface) continue;
+      if (ajTop && ai.spec?.surface) continue;
+      if (aiTop && ajTop) continue;
+      if (aiTop || ajTop) continue; // 테이블탑 장비는 모든 충돌 무시
       const a = new THREE.Box3().setFromObject(ai.mesh);
       const b = new THREE.Box3().setFromObject(aj.mesh);
       if (a.intersectsBox(b)) {
