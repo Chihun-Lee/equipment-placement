@@ -239,7 +239,7 @@
     </div>
     <div id="hint">
       좌클릭: 회전 · 우클릭: 팬 · 휠: 줌 · 클릭: 선택 · 드래그: 이동<br>
-      Enter: 배치완료 · R: 90°회전 · Del: 삭제 · 📏 줄자: 두 점 클릭
+      Enter: 배치완료 · R: 90°회전 · Del: 삭제 · ⌘Z: 되돌리기 · ⌘⇧Z: 앞으로 · 📏 줄자: 두 점 클릭
     </div>
   </div>
 </div>
@@ -353,6 +353,7 @@ let nextSpaceId = 2;
 const placed = [];
 let selectedId = null;
 let editingLibIdx = null;
+let selectionBox = null; // 선택 영역 표시용
 let nextId = 1;
 let showDims = true;
 
@@ -1462,6 +1463,7 @@ function removeItem(id) {
 
 function selectItem(id) {
   selectedId = id; editingLibIdx = null;
+  // 기존 emissive 하이라이트
   placed.forEach(p => {
     let mat;
     if (p.type === 'person') mat = p.torso?.material;
@@ -1469,6 +1471,24 @@ function selectItem(id) {
     else mat = Array.isArray(p.mesh.material) ? p.mesh.material[0] : p.mesh.material;
     if (mat?.emissive) { mat.emissive.setHex(p.id === id ? 0x4ec9b0 : 0); mat.emissiveIntensity = p.id === id ? 0.4 : 0; }
   });
+  // 선택 바운딩박스 표시
+  if (selectionBox) { scene.remove(selectionBox); selectionBox = null; }
+  if (id !== null) {
+    const item = placed.find(p => p.id === id);
+    if (item) {
+      const box = new THREE.Box3().setFromObject(item.mesh);
+      const sz = new THREE.Vector3(); box.getSize(sz);
+      const ct = new THREE.Vector3(); box.getCenter(ct);
+      // 살짝 여유 (0.02m 패딩)
+      const pad = 0.04;
+      const geo = new THREE.BoxGeometry(sz.x + pad, sz.y + pad, sz.z + pad);
+      const edges = new THREE.EdgesGeometry(geo);
+      selectionBox = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x4ec9b0, linewidth: 2, depthTest: false, transparent: true, opacity: 0.9 }));
+      selectionBox.position.copy(ct);
+      selectionBox.renderOrder = 999;
+      scene.add(selectionBox);
+    }
+  }
   refreshPlacedList(); refreshEditPanel();
 }
 
@@ -2004,6 +2024,17 @@ window.addEventListener('pointerup', () => {
 window.addEventListener('keydown', e => {
   const tag = e.target?.tagName || '';
   const inForm = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  // Ctrl+Z: 되돌리기, Ctrl+Shift+Z: 앞으로가기 (폼 내에서도 동작)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    if (historyIdx > 0) undoTo(historyIdx - 1);
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+    e.preventDefault();
+    if (historyIdx < history.length - 1) undoTo(historyIdx + 1);
+    return;
+  }
   if (e.key === 'Enter') { if (inForm) e.target.blur(); if (selectedId !== null) selectItem(null); return; }
   if (e.key === 'Escape') { if (rulerMode) { rulerMode = false; document.getElementById('rulerBtn').classList.remove('active'); clearRuler(); renderer.domElement.style.cursor = ''; } if (selectedId !== null) selectItem(null); return; }
   if (inForm) return;
@@ -2103,6 +2134,15 @@ let collisionTimer = 0;
 (function animate() {
   requestAnimationFrame(animate);
   orbit.update();
+  // 선택 바운딩박스 위치 추적
+  if (selectionBox && selectedId !== null) {
+    const item = placed.find(p => p.id === selectedId);
+    if (item) {
+      const box = new THREE.Box3().setFromObject(item.mesh);
+      const ct = new THREE.Vector3(); box.getCenter(ct);
+      selectionBox.position.copy(ct);
+    }
+  }
   // 충돌 체크 (매 30프레임마다)
   if (++collisionTimer >= 30) { collisionTimer = 0; updateCollisions(); }
   renderer.render(scene, camera);
