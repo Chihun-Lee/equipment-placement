@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>실험실 장비 배치 시뮬레이터 v2.4</title>
+<title>실험실 장비 배치 시뮬레이터 v2.5</title>
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: #1e1e1e; color: #eee; overflow: hidden; }
   #app { display: flex; height: 100vh; }
@@ -316,7 +316,7 @@
     <div id="credit" style="position:absolute; bottom:8px; left:8px; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; font-size:9px; color:#888; pointer-events:none; line-height:1.5; text-align:left;">
       Lab Equipment Placement Simulator v2<br>
       제작: chihunlee@kims.re.kr<br>
-      수정일: 2026-04-16
+      수정일: 2026-04-16 (v2.5)
     </div>
     <div id="hint">
       좌클릭: 회전 · 우클릭/휠버튼: 팬 · 휠: 줌 · 클릭: 선택 · 드래그: 이동<br>
@@ -938,6 +938,12 @@ function logMsg(msg) {
 }
 
 // ─── AI 자동 3D 형상 생성 ───
+// AI 파츠 캐시 버전 — v2.5 정규화 개선으로 기존 캐시 무효화
+const AI_CACHE_VERSION = '2';
+if (localStorage.getItem('aiPrimCacheVersion') !== AI_CACHE_VERSION) {
+  localStorage.removeItem('aiPrimCache');
+  localStorage.setItem('aiPrimCacheVersion', AI_CACHE_VERSION);
+}
 const AI_PRIM_CACHE = JSON.parse(localStorage.getItem('aiPrimCache') || '{}');
 
 // API 키 (내장)
@@ -1100,12 +1106,15 @@ For cylinder parts, use: rt (radiusTop fraction of width), rb (radiusBottom frac
 Position y: 0=bottom, 1=top. Position is the CENTER of each part.
 Optional part properties: opacity (0-1), emissive ("#hex"), emissiveIntensity (0-1), rx/ry/rz (radians).
 
-Rules:
+CRITICAL size rules — the 3D model MUST fill the entire bounding box:
+- The main body MUST span the FULL width (w fraction ≈ 0.95-1.0), FULL depth (d ≈ 0.95-1.0), and FULL height (h ≈ 0.95-1.0)
+- Small details (handles, displays, buttons) should stay WITHIN the main body bounds, not extend beyond
+- Position the main body so it fills from y=0 (bottom) to y=1 (top): main body y = 0.5, h = 1.0
+- For x and z: center at 0, use nearly full width/depth fractions
+- Do NOT make the main body 60-80% — that creates visible gaps. Fill the entire box.
 - Dimensions (w,d,h) must be realistic meters based on user's size choice
 - Use 4-8 parts for detail
-- Base rests on ground (lowest part y ≈ its_height/2)
 - Use realistic colors matching real equipment
-- Add characteristic features (displays, doors, handles, chambers, etc.)
 
 Respond with ONLY the JSON object. No markdown.`
     }], 1500);
@@ -1203,12 +1212,14 @@ Each part object:
 - color: hex string like "#555555"
 - Optional: opacity (0-1 for transparent parts like glass), emissive (hex), emissiveIntensity (0-1), rx/ry/rz (rotation radians)
 
-Design rules:
-- Equipment base should rest on ground (lowest part y ~ part_h/2)
+CRITICAL size rules — the shape MUST fill the entire bounding box:
+- Main body MUST fill nearly the full width, depth, AND height (fractions ≈ 0.95-1.0)
+- Main body position: x=0, z=0, y=0.5 (fills bottom to top)
+- Small details (handles, displays, buttons) should stay WITHIN the main body bounds
+- Do NOT make the main body 60-80% — fill the entire box
+- Equipment base should rest on ground (lowest part bottom at y=0)
 - Use realistic colors for that equipment type
-- Keep shapes simple but recognizable
-- Main body typically takes 60-90% of dimensions
-- Add details like doors, displays, handles as smaller parts
+- Add details like doors, displays, handles as smaller parts on the main body
 
 Respond with ONLY a valid JSON array. No markdown, no explanation.`
     }]);
@@ -1224,6 +1235,32 @@ Respond with ONLY a valid JSON array. No markdown, no explanation.`
 }
 
 function buildFromAIParts(parts, w, d, h, baseColor) {
+  // Phase 1: 임시 메쉬로 실제 bbox 측정 (회전 포함 정확)
+  const tmp = new THREE.Group();
+  for (const p of parts) {
+    let geo;
+    if (p.type === 'box') {
+      geo = new THREE.BoxGeometry((p.w||0.5)*w, (p.h||0.5)*h, (p.d||0.5)*d);
+    } else if (p.type === 'cylinder') {
+      geo = new THREE.CylinderGeometry((p.rt||0.1)*w, (p.rb||0.1)*w, (p.h||0.3)*h, p.seg||12);
+    } else continue;
+    const m = new THREE.Mesh(geo);
+    m.position.set((p.x||0)*w, (p.y||0.5)*h, (p.z||0)*d);
+    if (p.rx||p.ry||p.rz) m.rotation.set(p.rx||0, p.ry||0, p.rz||0);
+    tmp.add(m);
+  }
+  tmp.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(tmp);
+  tmp.traverse(c => { if (c.geometry) c.geometry.dispose(); });
+  const sz = new THREE.Vector3(); bb.getSize(sz);
+  const sx = sz.x > 1e-6 ? w / sz.x : 1;
+  const sy = sz.y > 1e-6 ? h / sz.y : 1;
+  const sd = sz.z > 1e-6 ? d / sz.z : 1;
+  const cx = (bb.min.x + bb.max.x) / 2;
+  const cz = (bb.min.z + bb.max.z) / 2;
+  const minY = bb.min.y;
+
+  // Phase 2: 정규화된 좌표/크기를 geometry에 직접 반영 (scale 사용 X → pickBox/label 간섭 없음)
   const g = new THREE.Group();
   for (const p of parts) {
     let geo;
@@ -1232,27 +1269,17 @@ function buildFromAIParts(parts, w, d, h, baseColor) {
     if (p.emissive) { matOpts.emissive = p.emissive; matOpts.emissiveIntensity = p.emissiveIntensity || 0.5; }
 
     if (p.type === 'box') {
-      geo = new THREE.BoxGeometry((p.w||0.5)*w, (p.h||0.5)*h, (p.d||0.5)*d);
+      geo = new THREE.BoxGeometry((p.w||0.5)*w*sx, (p.h||0.5)*h*sy, (p.d||0.5)*d*sd);
     } else if (p.type === 'cylinder') {
-      geo = new THREE.CylinderGeometry((p.rt||0.1)*w, (p.rb||0.1)*w, (p.h||0.3)*h, p.seg||12);
+      // 원통은 XZ 평균 스케일 사용 (타원 원통 대신 원형 유지)
+      const rs = Math.sqrt(sx * sd);
+      geo = new THREE.CylinderGeometry((p.rt||0.1)*w*rs, (p.rb||0.1)*w*rs, (p.h||0.3)*h*sy, p.seg||12);
     } else continue;
 
-    g.add(pm(geo, new THREE.MeshStandardMaterial(matOpts),
-      (p.x||0)*w, (p.y||0.5)*h, (p.z||0)*d, p.rx||0, p.ry||0, p.rz||0));
-  }
-  // 설정된 w/h/d 에 정확히 맞춰 스케일 정규화 (바닥 y=0, XZ 중앙 정렬)
-  g.updateMatrixWorld(true);
-  const bb = new THREE.Box3().setFromObject(g);
-  const sz = new THREE.Vector3(); bb.getSize(sz);
-  if (sz.x > 1e-6 && sz.y > 1e-6 && sz.z > 1e-6) {
-    const sx = w / sz.x, sy = h / sz.y, sd = d / sz.z;
-    const cx = (bb.min.x + bb.max.x) / 2;
-    const cz = (bb.min.z + bb.max.z) / 2;
-    const minY = bb.min.y;
-    g.children.forEach(c => {
-      c.position.set((c.position.x - cx) * sx, (c.position.y - minY) * sy, (c.position.z - cz) * sd);
-      c.scale.set(c.scale.x * sx, c.scale.y * sy, c.scale.z * sd);
-    });
+    const px = ((p.x||0)*w - cx) * sx;
+    const py = ((p.y||0.5)*h - minY) * sy;
+    const pz = ((p.z||0)*d - cz) * sd;
+    g.add(pm(geo, new THREE.MeshStandardMaterial(matOpts), px, py, pz, p.rx||0, p.ry||0, p.rz||0));
   }
   return g;
 }
