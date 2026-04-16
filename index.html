@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>실험실 장비 배치 시뮬레이터 v2</title>
+<title>실험실 장비 배치 시뮬레이터 v2.3</title>
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: #1e1e1e; color: #eee; overflow: hidden; }
   #app { display: flex; height: 100vh; }
@@ -1240,6 +1240,20 @@ function buildFromAIParts(parts, w, d, h, baseColor) {
     g.add(pm(geo, new THREE.MeshStandardMaterial(matOpts),
       (p.x||0)*w, (p.y||0.5)*h, (p.z||0)*d, p.rx||0, p.ry||0, p.rz||0));
   }
+  // 설정된 w/h/d 에 정확히 맞춰 스케일 정규화 (바닥 y=0, XZ 중앙 정렬)
+  g.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(g);
+  const sz = new THREE.Vector3(); bb.getSize(sz);
+  if (sz.x > 1e-6 && sz.y > 1e-6 && sz.z > 1e-6) {
+    const sx = w / sz.x, sy = h / sz.y, sd = d / sz.z;
+    const cx = (bb.min.x + bb.max.x) / 2;
+    const cz = (bb.min.z + bb.max.z) / 2;
+    const minY = bb.min.y;
+    g.children.forEach(c => {
+      c.position.set((c.position.x - cx) * sx, (c.position.y - minY) * sy, (c.position.z - cz) * sd);
+      c.scale.set(c.scale.x * sx, c.scale.y * sy, c.scale.z * sd);
+    });
+  }
   return g;
 }
 
@@ -1314,7 +1328,8 @@ function addEquipment(spec, x = null, z = null) {
   const p = { w: spec.w, d: spec.d, h: spec.h, color: c2i(spec.color), opacity: spec.opacity ?? 1, showLabel: spec.showLabel ?? true };
   // 3D 표현 우선순위: GLB → 프리미티브 → 사진텍스처 → 박스
   let mesh, usePrimitive = false;
-  const primKey = matchPrimitive(spec.name);
+  const forceBox = spec._forceBox === true;
+  const primKey = forceBox ? null : matchPrimitive(spec.name);
   if (spec.glbDataURL) {
     // GLB는 비동기 로드 — 일단 박스 placeholder 후 교체
     mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), new THREE.MeshStandardMaterial({ color: p.color, transparent: true, opacity: 0.3 }));
@@ -1340,7 +1355,7 @@ function addEquipment(spec, x = null, z = null) {
     mesh = new THREE.Mesh(geo, makeTexMaterials(spec.textureDataURL, p.color, p.opacity));
   } else {
     // 캐시에 AI 프리미티브가 있으면 즉시 사용
-    if (AI_PRIM_CACHE[spec.name]) {
+    if (!forceBox && AI_PRIM_CACHE[spec.name]) {
       mesh = buildFromAIParts(AI_PRIM_CACHE[spec.name], p.w, p.d, p.h, p.color);
       const pickBox = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), new THREE.MeshBasicMaterial({ visible: false }));
       pickBox.position.y = p.h / 2;
@@ -1389,7 +1404,7 @@ function addEquipment(spec, x = null, z = null) {
   placed.push(item); refreshPlacedList(); selectItem(id); pushHistory(`+ ${spec.name} 배치`);
 
   // AI 자동 3D 형상 생성 (캐시 없고, 프리미티브 매칭 안 되고, GLB/텍스처 없을 때)
-  if (!usePrimitive && !spec.glbDataURL && !spec.textureDataURL && !primKey) {
+  if (!forceBox && !usePrimitive && !spec.glbDataURL && !spec.textureDataURL && !primKey) {
     generateAIPrimitive(spec.name).then(parts => {
       if (!parts || !placed.find(pi => pi.id === id)) return;
       // 기존 mesh를 scene에서 제거하고 AI 프리미티브로 교체
@@ -1799,7 +1814,8 @@ function refreshPlacedList() {
     d.className = 'placed-row' + (p.id === selectedId ? ' selected' : '');
     const bc = { equipment:'equip', door:'door', barrier:'barrier', person:'person', robot:'robot' }[p.type];
     const nm = { equipment:'장비', door:'문', barrier:'방호벽', person:'사람', robot:'로봇' }[p.type];
-    d.innerHTML = `<span>#${p.id} ${p.name}</span><span class="badge ${bc}">${nm}</span>`;
+    const lk = p.locked ? ' 🔒' : '';
+    d.innerHTML = `<span>#${p.id} ${p.name}${lk}</span><span class="badge ${bc}">${nm}</span>`;
     d.onclick = () => selectItem(p.id);
     el.appendChild(d);
   });
@@ -1850,6 +1866,7 @@ function renderEquipEdit(el, item) {
     <div class="chk"><input type="checkbox" id="eLbl" ${p.showLabel?'checked':''}> 라벨</div>
     <div class="chk"><input type="checkbox" id="eTabletop" ${item.spec?.category==='tabletop'?'checked':''}> 테이블탑 장비</div>
     <div class="chk"><input type="checkbox" id="eAI3D" ${item.usePrimitive?'checked':''}> AI 3D 형상</div>
+    <div class="chk"><input type="checkbox" id="eLock" ${item.locked?'checked':''}> 🔒 고정 (이동/편집 잠금)</div>
     <button class="danger" id="delBtn">삭제</button>`;
   const apply = () => {
     item.mesh.position.x = toMeters(parseFloat(el.querySelector('#eX').value));
@@ -1867,6 +1884,16 @@ function renderEquipEdit(el, item) {
     pushHistory(`✏ ${item.name} 편집`);
   };
   ['eX','eY','eZ','eRot','eW','eD','eH','eC','eOp','eLbl','eTabletop'].forEach(k => el.querySelector('#'+k).oninput = apply);
+  // 잠금 토글
+  el.querySelector('#eLock').onchange = () => {
+    item.locked = el.querySelector('#eLock').checked;
+    // 잠금 시 위치/크기 입력 비활성화
+    ['eX','eY','eZ','eRot','eW','eD','eH','rotL','rotR','delBtn'].forEach(k => { const n = el.querySelector('#'+k); if (n) n.disabled = item.locked; });
+    refreshPlacedList();
+    pushHistory(`${item.locked?'🔒':'🔓'} ${item.name} ${item.locked?'고정':'고정 해제'}`);
+  };
+  // 초기 잠금 상태 반영
+  if (item.locked) ['eX','eY','eZ','eRot','eW','eD','eH','rotL','rotR','delBtn'].forEach(k => { const n = el.querySelector('#'+k); if (n) n.disabled = true; });
   // 이름 변경 (onchange — 포커스 나갈 때)
   el.querySelector('#eName').onchange = () => {
     const newName = el.querySelector('#eName').value.trim();
@@ -2146,11 +2173,11 @@ function serializeState() {
     version: SAVE_VERSION, spaces, activeSpaceId, nextSpaceId, bgColor: '#' + scene.background.getHexString(),
     placed: placed.map(item => {
       const base = { type: item.type, name: item.name, id: item.id, spaceId: item.spaceId };
-      if (item.type === 'equipment') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, y: item.mesh.position.y, rotY: item.rotY, props: item.props, specName: item.spec?.name, specCategory: item.spec?.category, specSurface: item.spec?.surface, textureDataURL: item.textureDataURL, glbDataURL: item.glbDataURL };
-      if (item.type === 'door') return { ...base, props: item.props };
-      if (item.type === 'barrier') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
-      if (item.type === 'person') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
-      if (item.type === 'robot') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props };
+      if (item.type === 'equipment') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, y: item.mesh.position.y, rotY: item.rotY, props: item.props, specName: item.spec?.name, specCategory: item.spec?.category, specSurface: item.spec?.surface, textureDataURL: item.textureDataURL, glbDataURL: item.glbDataURL, usePrimitive: !!item.usePrimitive, locked: !!item.locked };
+      if (item.type === 'door') return { ...base, props: item.props, locked: !!item.locked };
+      if (item.type === 'barrier') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props, locked: !!item.locked };
+      if (item.type === 'person') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props, locked: !!item.locked };
+      if (item.type === 'robot') return { ...base, x: item.mesh.position.x, z: item.mesh.position.z, rotY: item.rotY, props: item.props, locked: !!item.locked };
     }), nextId, adjacencies, unit: currentUnit,
   });
 }
@@ -2173,29 +2200,34 @@ function loadState(json, skipHistory) {
     if (d.type === 'equipment') {
       const libSpec = LIBRARY.find(s => s.name === d.specName) || { name: d.name, w: d.props.w, d: d.props.d, h: d.props.h, color: i2h(d.props.color), opacity: d.props.opacity, showLabel: d.props.showLabel, category: d.specCategory || 'floor', surface: d.specSurface || false, textureDataURL: d.textureDataURL, glbDataURL: d.glbDataURL };
       if (d.textureDataURL && !libSpec.textureDataURL) libSpec.textureDataURL = d.textureDataURL;
-      const item = addEquipment(libSpec, d.x, d.z);
+      // 저장 시 AI 3D 형상이 꺼져 있었다면 박스로 강제 (이슈 2)
+      const specForAdd = { ...libSpec };
+      if (d.usePrimitive === false) specForAdd._forceBox = true;
+      const item = addEquipment(specForAdd, d.x, d.z);
       item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
       item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
       item.mesh.position.y = item.usePrimitive ? 0 : (d.y || d.props.h / 2);
       Object.assign(item.props, d.props);
       item.textureDataURL = d.textureDataURL || null;
       item.glbDataURL = d.glbDataURL || null;
+      item.locked = !!d.locked;
       updateEquipVisual(item);
     } else if (d.type === 'door') {
       const item = addDoor(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
-      Object.assign(item.props, d.props); updateDoorPlace(item);
+      Object.assign(item.props, d.props); item.locked = !!d.locked; updateDoorPlace(item);
     } else if (d.type === 'barrier') {
       const item = addBarrier(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
       Object.assign(item.props, d.props); item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
-      item.mesh.position.set(d.x, d.props.h / 2, d.z); updateBarrierVis(item);
+      item.mesh.position.set(d.x, d.props.h / 2, d.z); item.locked = !!d.locked; updateBarrierVis(item);
     } else if (d.type === 'person') {
       const item = addPerson(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
       item.mesh.position.set(d.x, 0, d.z); item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
       Object.assign(item.props, d.props); item.torso.material.color.setHex(d.props.color); item.label.visible = d.props.showLabel;
+      item.locked = !!d.locked;
     } else if (d.type === 'robot') {
       const item = addRobotArm(); item.id = d.id; item.mesh.userData.id = d.id; item.spaceId = d.spaceId || 1;
       item.mesh.position.set(d.x, 0, d.z); item.rotY = d.rotY || 0; item.mesh.rotation.y = item.rotY;
-      Object.assign(item.props, d.props); updateRobotVisual(item);
+      Object.assign(item.props, d.props); item.locked = !!d.locked; updateRobotVisual(item);
     }
     activeSpaceId = savedActiveId;
   });
@@ -2310,6 +2342,8 @@ renderer.domElement.addEventListener('pointerdown', e => {
     const item = placed.find(p => p.id === id);
     // 공간 자동 전환
     if (item.spaceId !== activeSpaceId) { activeSpaceId = item.spaceId; syncSpaceUI(); renderSpaceList(); refreshPlacedList(); }
+    // 고정된 객체는 드래그 불가 (선택만 허용)
+    if (item.locked) return;
     const pt = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, pt);
     const target = (item.type === 'person' || item.type === 'robot') ? item.mesh : item.mesh;
     dragOffset.copy(pt).sub(new THREE.Vector3(target.position.x, 0, target.position.z));
@@ -2400,6 +2434,10 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (rulerMode) { rulerMode = false; document.getElementById('rulerBtn').classList.remove('active'); clearRuler(); renderer.domElement.style.cursor = ''; } if (selectedId !== null) selectItem(null); return; }
   if (inForm) return;
   const item = placed.find(p => p.id === selectedId); if (!item) return;
+  // 'L' 키로 잠금 토글
+  if (e.key === 'l' || e.key === 'L') { e.preventDefault(); item.locked = !item.locked; refreshPlacedList(); refreshEditPanel(); pushHistory(`${item.locked?'🔒':'🔓'} ${item.name} ${item.locked?'고정':'고정 해제'}`); return; }
+  // 고정된 객체는 이동/회전/삭제 불가
+  if (item.locked) return;
   // 방향키: 화면 기준 절대 좌표 이동 (Shift로 미세 이동)
   const step = e.shiftKey ? 0.01 : 0.05;
   if (e.key === 'ArrowLeft')  { e.preventDefault(); item.mesh.position.x -= step; refreshEditPanel(); return; }
