@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>실험실 장비 배치 시뮬레이터 v2.3</title>
+<title>실험실 장비 배치 시뮬레이터 v2.4</title>
 <style>
   html, body { margin: 0; height: 100%; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: #1e1e1e; color: #eee; overflow: hidden; }
   #app { display: flex; height: 100vh; }
@@ -1441,12 +1441,33 @@ function addEquipment(spec, x = null, z = null) {
   return item;
 }
 
+function rebuildPrimitiveMesh(item) {
+  const p = item.props;
+  const oldPos = item.mesh.position.clone();
+  const oldRot = item.rotY || 0;
+  scene.remove(item.mesh);
+  const primKey = matchPrimitive(item.name);
+  let newMesh;
+  if (primKey && PRIMITIVES[primKey]) {
+    newMesh = PRIMITIVES[primKey](p.w, p.d, p.h, p.color);
+  } else if (AI_PRIM_CACHE[item.name]) {
+    newMesh = buildFromAIParts(AI_PRIM_CACHE[item.name], p.w, p.d, p.h, p.color);
+  } else return;
+  const pickBox = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), new THREE.MeshBasicMaterial({ visible: false }));
+  pickBox.position.y = p.h / 2; pickBox.userData.id = item.id; newMesh.add(pickBox);
+  const label = makeLabelSprite(item.name);
+  label.position.set(0, p.h + 0.25, 0); label.visible = p.showLabel; newMesh.add(label);
+  newMesh.position.copy(oldPos);
+  newMesh.position.y = (item.spec?.category === 'tabletop' && oldPos.y > 0.1) ? oldPos.y : 0;
+  newMesh.rotation.y = oldRot; newMesh.userData.id = item.id;
+  scene.add(newMesh);
+  item.mesh = newMesh; item.label = label; item.edges = null;
+}
+
 function updateEquipVisual(item) {
   const p = item.props;
   if (item.usePrimitive) {
-    // 프리미티브는 재빌드 필요 — 색상만 업데이트
-    item.mesh.traverse(ch => { if (ch.isMesh && ch.material && ch.material.color) ch.material.color.setHex(p.color); });
-    item.label.position.y = p.h + 0.25; item.label.visible = p.showLabel;
+    rebuildPrimitiveMesh(item);
     return;
   }
   if (!item.mesh.geometry) { item.label.visible = p.showLabel; return; }
@@ -1861,6 +1882,7 @@ function renderEquipEdit(el, item) {
     <div class="row"><div><label>W</label><input type="number" id="eW" step="${s}" value="${toDisplay(p.w).toFixed(2)}"></div>
     <div><label>D</label><input type="number" id="eD" step="${s}" value="${toDisplay(p.d).toFixed(2)}"></div>
     <div><label>H</label><input type="number" id="eH" step="${s}" value="${toDisplay(p.h).toFixed(2)}"></div></div>
+    <button class="sm" id="applySizeBtn" style="width:100%;margin:4px 0">크기 적용</button>
     <label>색상</label><input type="color" id="eC" value="${i2h(p.color)}">${paletteHTML('eC')}
     <label>투명도 <span id="eOV">${p.opacity.toFixed(2)}</span></label><input type="range" id="eOp" min="0" max="1" step="0.05" value="${p.opacity}">
     <div class="chk"><input type="checkbox" id="eLbl" ${p.showLabel?'checked':''}> 라벨</div>
@@ -1883,17 +1905,20 @@ function renderEquipEdit(el, item) {
     if (isTabletop) snapToSurface(item);
     pushHistory(`✏ ${item.name} 편집`);
   };
-  ['eX','eY','eZ','eRot','eW','eD','eH','eC','eOp','eLbl','eTabletop'].forEach(k => el.querySelector('#'+k).oninput = apply);
+  ['eX','eY','eZ','eRot','eC','eOp','eLbl','eTabletop'].forEach(k => el.querySelector('#'+k).oninput = apply);
+  // 크기는 onchange(포커스 아웃) 또는 "크기 적용" 버튼으로 반영
+  ['eW','eD','eH'].forEach(k => el.querySelector('#'+k).onchange = apply);
+  el.querySelector('#applySizeBtn').onclick = () => { apply(); refreshEditPanel(); };
   // 잠금 토글
   el.querySelector('#eLock').onchange = () => {
     item.locked = el.querySelector('#eLock').checked;
     // 잠금 시 위치/크기 입력 비활성화
-    ['eX','eY','eZ','eRot','eW','eD','eH','rotL','rotR','delBtn'].forEach(k => { const n = el.querySelector('#'+k); if (n) n.disabled = item.locked; });
+    ['eX','eY','eZ','eRot','eW','eD','eH','rotL','rotR','delBtn','applySizeBtn'].forEach(k => { const n = el.querySelector('#'+k); if (n) n.disabled = item.locked; });
     refreshPlacedList();
     pushHistory(`${item.locked?'🔒':'🔓'} ${item.name} ${item.locked?'고정':'고정 해제'}`);
   };
   // 초기 잠금 상태 반영
-  if (item.locked) ['eX','eY','eZ','eRot','eW','eD','eH','rotL','rotR','delBtn'].forEach(k => { const n = el.querySelector('#'+k); if (n) n.disabled = true; });
+  if (item.locked) ['eX','eY','eZ','eRot','eW','eD','eH','rotL','rotR','delBtn','applySizeBtn'].forEach(k => { const n = el.querySelector('#'+k); if (n) n.disabled = true; });
   // 이름 변경 (onchange — 포커스 나갈 때)
   el.querySelector('#eName').onchange = () => {
     const newName = el.querySelector('#eName').value.trim();
