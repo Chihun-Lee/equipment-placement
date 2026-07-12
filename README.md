@@ -183,8 +183,8 @@ npx serve .
 ### 알림 시스템 연동
 배포/빌드 결과는 Telegram 알림으로 연동 가능:
 ```bash
-~/Code/cluster-notify/notify.sh equiment_placement started "GitHub Pages 배포 시작"
-~/Code/cluster-notify/notify.sh equiment_placement training_complete "배포 완료"
+~/Code/클러스터/cluster-notify/notify.sh equiment_placement started "GitHub Pages 배포 시작"
+~/Code/클러스터/cluster-notify/notify.sh equiment_placement training_complete "배포 완료"
 ```
 
 ---

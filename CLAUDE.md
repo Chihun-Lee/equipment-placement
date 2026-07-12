@@ -64,9 +64,9 @@ PRIMITIVES{} — 프리미티브 빌더 (20종, 장비명 자동 매칭)
 
 배포/빌드 결과 Telegram 알림:
 ```bash
-~/Code/cluster-notify/notify.sh equiment_placement started "GitHub Pages 배포 시작"
-~/Code/cluster-notify/notify.sh equiment_placement training_complete "배포 완료"
-~/Code/cluster-notify/notify.sh equiment_placement error "배포 실패"
+~/Code/클러스터/cluster-notify/notify.sh equiment_placement started "GitHub Pages 배포 시작"
+~/Code/클러스터/cluster-notify/notify.sh equiment_placement training_complete "배포 완료"
+~/Code/클러스터/cluster-notify/notify.sh equiment_placement error "배포 실패"
 ```
 
 ## 배포
